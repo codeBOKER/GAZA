@@ -56,17 +56,14 @@ class BoycottPruducts(models.Model):
         return self.product_name
 
 
-class GenrateText(models.Model):
-    text_field = models.TextField()
-    check= models.BooleanField(default=False)
+class SystemMessage(models.Model):
+    name = models.CharField(max_length=100)
+    message = models.TextField()
+    is_active = models.BooleanField(default=True)
+    
+    class Meta:
+        verbose_name = 'System Message'
+        verbose_name_plural = 'System Messages'
     
     def __str__(self):
-        return self.text_field[:50]
-
-
-class GenrateImg(models.Model):
-    text_field = models.TextField()
-    check= models.BooleanField(default=False)
-
-    def __str__(self):
-        return self.text_field[:50]
+        return self.name

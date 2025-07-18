@@ -3,17 +3,25 @@ import logging
 from huggingface_hub.utils import HfHubHTTPError
 from requests.exceptions import HTTPError, RequestException
 from .API_keys import get_correct_api, rigister_key_sotp_datetime, initialize_client
+from channels.db import database_sync_to_async
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 async def genrate_text_cause(text):
+    try:
+        from analyzer.models import SystemMessage
+        system_msg = await database_sync_to_async(lambda: SystemMessage.objects.filter(name="text_generation", is_active=True).first())()
+        system_content = system_msg.message if system_msg else "Type this text in another style, with Arabic language"
+    except Exception as e:
+        logger.error(f"Error fetching text generation system message: {str(e)}")
+        system_content = "Type this text in another style, with Arabic language"
     
     message = [
         {
             "role": "system",
-            "content": "Type this text in another style, with Arabic language"
+            "content": system_content
         },
         {
             "role": "user",
@@ -28,11 +36,18 @@ async def genrate_text_cause(text):
     return await analyze(message)
 
 async def analyze_img(image_url):
+    try:
+        from analyzer.models import SystemMessage
+        system_msg = await database_sync_to_async(lambda: SystemMessage.objects.filter(name="image_analysis", is_active=True).first())() 
+        system_content = system_msg.message if system_msg else "You are a product identification AI. Analyze the image and identify the product and its company. Describe what this product is used for. If no product is visible, answer 'None'. Respond in this exact format: [Company Name, long Usage Description, Product Name]."
+    except Exception as e:
+        logger.error(f"Error fetching image analysis system message: {str(e)}")
+        system_content = "You are a product identification AI. Analyze the image and identify the product and its company. Describe what this product is used for. If no product is visible, answer 'None'. Respond in this exact format: [Company Name, long Usage Description, Product Name]."
     
     message = [
         {
             "role": "system",
-            "content": "You are a product identification AI. Analyze the image and identify the product and its company. Describe what this product is used for. If no product is visible, answer 'None'. Respond in this exact format: [Company Name, long Usage Description, Product Name]."
+            "content": system_content
         },
         {
             "role": "user",

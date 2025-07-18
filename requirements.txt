@@ -2,3 +2,6 @@ Django==4.2.7
 djangorestframework==3.14.0
 huggingface_hub
 Pillow
+channels==4.2.2
+daphne==4.2.1
+cairosvg==2.8.2

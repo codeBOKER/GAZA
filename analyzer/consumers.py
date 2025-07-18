@@ -1,10 +1,13 @@
 import base64
 import json
 import asyncio
+import logging
 from channels.generic.websocket import AsyncWebsocketConsumer
 from .imgProcessor import convert_and_resize_image
-from analyzer.API.message import analyze_img
+from analyzer.API.message import analyze_img, genrate_text_cause
 from analyzer.Boycott import check_company_and_get_cause
+
+logger = logging.getLogger(__name__)
 
 
 def parse_response(response: str):
@@ -36,10 +39,24 @@ class AnalyzeConsumer(AsyncWebsocketConsumer):
 
         try:
             response_text = await asyncio.wait_for(analyze_img(image_url), timeout=25.0)
+            logger.info(f"Image analysis response: {response_text}")
+            
             parsed = parse_response(response_text)
-            # The error occurs because check_company_and_get_cause() returns a coroutine object
-            # We need to await the coroutine to get the actual result before using it
-            cause = await asyncio.wait_for(await check_company_and_get_cause(parsed[0]), timeout=25.0) or ""
+            logger.info(f"Parsed response: {parsed}")
+            
+            # Get company cause
+            company_name = parsed[0] if parsed and len(parsed) > 0 else ""
+            
+            company_coroutine = check_company_and_get_cause(company_name)
+            cause_text = await asyncio.wait_for(company_coroutine, timeout=25.0)
+            
+            if cause_text:
+                cause_coroutine = genrate_text_cause(cause_text)
+                cause = await asyncio.wait_for(cause_coroutine, timeout=25.0) or ""
+                logger.info(f"Formatted cause: {cause}")
+            else:
+                cause = ""
+                logger.info("No cause found")
             
             await self.send(text_data=json.dumps({"type": "company", "value": parsed[0]}))
             
