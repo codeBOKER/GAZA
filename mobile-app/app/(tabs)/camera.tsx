@@ -9,6 +9,7 @@ export default function CameraScreen() {
   const [pressTimer, setPressTimer] = useState<number | null>(null);
   const [isContainerExpanded, setIsContainerExpanded] = useState(true); // Track container state
   const [screenDimensions, setScreenDimensions] = useState(Dimensions.get('window'));
+  const [isBoycottAlert, setIsBoycottAlert] = useState(false); // TRUE = red (boycott), FALSE = green (safe)
   
   // Update screen dimensions on changes (orientation, etc.)
   useEffect(() => {
@@ -121,7 +122,7 @@ export default function CameraScreen() {
   const handlePressIn = () => {
     const timer = setTimeout(() => {
       takePicture();
-    }, 1000); // 1 second
+    }, 600); // 0.6 second
     setPressTimer(timer);
   };
 
@@ -191,12 +192,31 @@ export default function CameraScreen() {
       </TouchableOpacity>
       {/* White container taking 75% from bottom - blocks touch */}
       <Animated.View style={[styles.whiteContainer, { height: containerHeight }]} pointerEvents="auto">
+        {/* Dynamic color circle on top left */}
+        <View style={[
+          styles.alertCircle, 
+          { backgroundColor: isBoycottAlert ? '#F44336' : '#4CAF50' }
+        ]} />
+        
         {/* Draggable header area */}
         <View style={styles.dragArea} {...panResponder.panHandlers}>
           {/* Home indicator line like iPhone */}
           <View style={styles.homeIndicator} />
-        </View>
         
+        
+          {/* Dynamic color text container between company and home indicator */}
+          <View style={[
+            styles.alertTextContainer,
+            { backgroundColor: isBoycottAlert ? '#FFEBEE' : '#E8F5E8' }
+          ]}>
+            <Text style={[
+              styles.alertText,
+              { color: isBoycottAlert ? '#C62828' : '#2E7D32' }
+            ]}>
+              {isBoycottAlert ? 'Boycott Alert' : 'Safe Alternative'}
+            </Text>
+          </View>
+        </View>
         {/* Select from gallery button / Close button in top right */}
         <TouchableOpacity
           style={styles.pickImageButton}
@@ -218,7 +238,10 @@ export default function CameraScreen() {
           {/* First row - Company */}
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Company: </Text>
-            <Text style={styles.infoValue}>Coca cola</Text>
+            <Text style={[
+              styles.infoValue,
+              isBoycottAlert && styles.strikethroughText
+            ]}>Coca cola</Text>
           </View>
           
           {/* Separator line */}
@@ -227,7 +250,11 @@ export default function CameraScreen() {
           {/* Second row - Why */}
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Why: </Text>
-            <Text style={styles.infoValueSmall}>Supporting violence in Gaza by giving the army mony and many other thing</Text>
+            <Text style={styles.infoValueSmall}>
+              {isBoycottAlert 
+                ? "Supports Israeli military operations in Gaza" 
+                : "Ethical alternative that doesn't support violence"}
+            </Text>
           </View>
           
           {/* Separator line */}
@@ -390,15 +417,15 @@ const styles = StyleSheet.create({
     height: 23,
   },
   closeIcon: {
-    fontSize: 23,
+    fontSize: 24,
     fontWeight: 'bold',
-    backgroundColor:'rgba(0, 0, 0, 0.12)',
+    backgroundColor:'rgba(0, 0, 0, 0.16)',
     color: '#333',
     textAlign: 'center',
     width: 28,
     height: 28,
-    borderRadius: 12,
-    lineHeight: 29,
+    borderRadius: 14,
+    lineHeight: 25,
   },
   captureButton: {
     width: 70,
@@ -431,7 +458,6 @@ const styles = StyleSheet.create({
   homeIndicator: {
     width: 134,
     height: 5,
-    marginTop: 0,
     backgroundColor: '#000',
     borderRadius: 3,
     alignSelf: 'center',
@@ -447,7 +473,6 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 20,
   },
   infoRow: {
     flexDirection: 'row',
@@ -525,5 +550,55 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     fontWeight: '500',
+  },
+  greenCircle: {
+    position: 'absolute',
+    top: 15,
+    left: 20,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#4CAF50',
+    zIndex: 10,
+  },
+  greenTextContainer: {
+    backgroundColor: '#E8F5E8',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    alignSelf: 'center',
+    marginTop: 8,
+    marginBottom: 10,
+  },
+  greenText: {
+    color: '#2E7D32',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  alertCircle: {
+    position: 'absolute',
+    top: 15,
+    left: 20,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    zIndex: 10,
+  },
+  alertTextContainer: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    alignSelf: 'center',
+    marginTop: 20,
+  },
+  alertText: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  strikethroughText: {
+    textDecorationLine: 'line-through',
+    textDecorationStyle: 'solid',
   },
 });
