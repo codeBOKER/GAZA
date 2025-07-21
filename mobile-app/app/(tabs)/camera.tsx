@@ -1,20 +1,39 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, TouchableOpacity, Alert, Text, Animated, PanResponder, Dimensions, Image } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, Alert, Text, Animated, PanResponder, Dimensions, Image, ScrollView } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import CameraView from '@/components/CameraView';
-
-const { height: screenHeight } = Dimensions.get('window');
 
 export default function CameraScreen() {
   const [hasPermission, setHasPermission] = useState(false);
   const [pressTimer, setPressTimer] = useState<number | null>(null);
   const [isContainerExpanded, setIsContainerExpanded] = useState(true); // Track container state
+  const [screenDimensions, setScreenDimensions] = useState(Dimensions.get('window'));
+  
+  // Update screen dimensions on changes (orientation, etc.)
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setScreenDimensions(window);
+    });
+    return () => subscription?.remove();
+  }, []);
   
   // Drag functionality for white container
+  const screenHeight = screenDimensions.height;
   const containerHeight = useRef(new Animated.Value(screenHeight * 0.75)).current;
   const minHeight = screenHeight * 0.25; // Minimum 25% of screen
   const maxHeight = screenHeight * 0.75; // Maximum 75% of screen
+  const currentHeightValue = useRef(screenHeight * 0.75);
+  
+  // Update container height when screen dimensions change
+  useEffect(() => {
+    const newMaxHeight = screenHeight * 0.75;
+    const newMinHeight = screenHeight * 0.25;
+    currentHeightValue.current = newMaxHeight;
+    
+    // Update container to new max height if it was previously at max
+    containerHeight.setValue(newMaxHeight);
+  }, [screenHeight, containerHeight]);
   
   // Listen to container height changes to update button state
   useEffect(() => {
@@ -27,8 +46,6 @@ export default function CameraScreen() {
       containerHeight.removeListener(listener);
     };
   }, [containerHeight, minHeight, maxHeight]);
-  
-  const currentHeightValue = useRef(screenHeight * 0.75);
   
   const panResponder = useRef(
     PanResponder.create({
@@ -197,6 +214,87 @@ export default function CameraScreen() {
         </TouchableOpacity>
         
         {/* Content inside white container */}
+        <View style={styles.contentContainer}>
+          {/* First row - Company */}
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Company: </Text>
+            <Text style={styles.infoValue}>Coca cola</Text>
+          </View>
+          
+          {/* Separator line */}
+          <View style={styles.separatorLine} />
+          
+          {/* Second row - Why */}
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Why: </Text>
+            <Text style={styles.infoValueSmall}>Supporting violence in Gaza by giving the army mony and many other thing</Text>
+          </View>
+          
+          {/* Separator line */}
+          <View style={styles.separatorLine} />
+          
+          {/* Alternatives row */}
+          <View style={styles.alternativesSection}>
+            <Text style={styles.alternativesTitle}>Alternatives:</Text>
+            <ScrollView 
+              style={styles.alternativesScrollView}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.alternativesGrid}>
+                {/* First row */}
+                <View style={styles.alternativeRow}>
+                  <View style={styles.alternativeItem}>
+                    <View style={styles.alternativeImagePlaceholder}>
+                      <Text style={styles.placeholderText}>IMG</Text>
+                    </View>
+                    <Text style={styles.alternativeCompanyName}>Pepsi</Text>
+                  </View>
+                  
+                  <View style={styles.alternativeItem}>
+                    <View style={styles.alternativeImagePlaceholder}>
+                      <Text style={styles.placeholderText}>IMG</Text>
+                    </View>
+                    <Text style={styles.alternativeCompanyName}>Local Brand</Text>
+                  </View>
+                </View>
+                
+                {/* Second row */}
+                <View style={styles.alternativeRow}>
+                  <View style={styles.alternativeItem}>
+                    <View style={styles.alternativeImagePlaceholder}>
+                      <Text style={styles.placeholderText}>IMG</Text>
+                    </View>
+                    <Text style={styles.alternativeCompanyName}>7UP</Text>
+                  </View>
+                  
+                  <View style={styles.alternativeItem}>
+                    <View style={styles.alternativeImagePlaceholder}>
+                      <Text style={styles.placeholderText}>IMG</Text>
+                    </View>
+                    <Text style={styles.alternativeCompanyName}>Sprite</Text>
+                  </View>
+                </View>
+                
+                {/* Third row */}
+                <View style={styles.alternativeRow}>
+                  <View style={styles.alternativeItem}>
+                    <View style={styles.alternativeImagePlaceholder}>
+                      <Text style={styles.placeholderText}>IMG</Text>
+                    </View>
+                    <Text style={styles.alternativeCompanyName}>Fanta</Text>
+                  </View>
+                  
+                  <View style={styles.alternativeItem}>
+                    <View style={styles.alternativeImagePlaceholder}>
+                      <Text style={styles.placeholderText}>IMG</Text>
+                    </View>
+                    <Text style={styles.alternativeCompanyName}>Mountain Dew</Text>
+                  </View>
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
       </Animated.View>
     
     </View>
@@ -235,12 +333,11 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     paddingTop: 0,
-    paddingHorizontal: 20,
-    alignItems: 'center',
+    paddingHorizontal: 0,
   },
   scannerFrame: {
-    width: 280,
-    height: 400,
+    width: '80%',
+    height: '200%',
     position: 'relative',
   },
   corner: {
@@ -293,15 +390,15 @@ const styles = StyleSheet.create({
     height: 23,
   },
   closeIcon: {
-    fontSize: 24,
+    fontSize: 23,
     fontWeight: 'bold',
     backgroundColor:'rgba(0, 0, 0, 0.12)',
     color: '#333',
     textAlign: 'center',
-    width: 26,
-    height: 26,
+    width: 28,
+    height: 28,
     borderRadius: 12,
-    lineHeight: 23,
+    lineHeight: 29,
   },
   captureButton: {
     width: 70,
@@ -334,7 +431,7 @@ const styles = StyleSheet.create({
   homeIndicator: {
     width: 134,
     height: 5,
-    marginTop: 7,
+    marginTop: 0,
     backgroundColor: '#000',
     borderRadius: 3,
     alignSelf: 'center',
@@ -346,5 +443,87 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  contentContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+    paddingVertical: 8,
+  },
+  infoLabel: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#333',
+    minWidth: 90,
+  },
+  infoValue: {
+    fontSize: 18,
+    color: '#666',
+    flex: 1,
+    textAlign: 'center',
+  },
+  infoValueSmall: {
+    fontSize: 14,
+    color: '#666',
+    flex: 1,
+  },
+  separatorLine: {
+    height: 1,
+    backgroundColor: '#E0E0E0',
+    marginVertical: 10,
+    marginHorizontal: 0,
+  },
+  alternativesSection: {
+    paddingTop: 10,
+  },
+  alternativesTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 15,
+  },
+  alternativesScrollView: {
+    flex: 1,
+    maxHeight: 240,
+  },
+  alternativesGrid: {
+    paddingBottom: 5,
+  },
+  alternativeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-start',
+    marginBottom: 10,
+  },
+  alternativeItem: {
+    alignItems: 'center',
+    width: '45%',
+  },
+  alternativeImagePlaceholder: {
+    width: 150,
+    height: 150,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  placeholderText: {
+    fontSize: 10,
+    color: '#999',
+    fontWeight: '500',
+  },
+  alternativeCompanyName: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    fontWeight: '500',
   },
 });
