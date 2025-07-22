@@ -23,9 +23,6 @@ def convert_and_resize_image(file_bytes, max_size=(800, 800), quality=70):
         image = image.convert("RGB")
         image.thumbnail(max_size)
 
-        os.makedirs(settings.MEDIA_ROOT, exist_ok=True)
-        image.save(file_path, format="JPEG", quality=quality)
-
         buffer = io.BytesIO()
         image.save(buffer, format="JPEG", quality=quality)
         resized_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')

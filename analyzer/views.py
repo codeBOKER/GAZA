@@ -23,6 +23,8 @@ def home_view(request):
                     resultDiv.innerHTML += `<p><strong>Company:</strong> ${data.value}</p>`;
                 } else if (data.type === "usage") {
                     resultDiv.innerHTML += `<p><strong>Usage:</strong> ${data.value}</p>`;
+                } else if (data.type === "status") {
+                resultDiv.innerHTML += `<p><strong>status:</strong> ${data.value}</p>`;
                 } else if (data.type === "product") {
                     resultDiv.innerHTML += `<p><strong>Product:</strong> ${data.value}</p>`;
                 } else if (data.type === "error") {

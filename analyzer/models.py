@@ -43,7 +43,7 @@ class ProductType(models.Model):
     def __str__(self):
         return self.product_type
 
-class BoycottPruducts(models.Model):
+class BoycottProducts(models.Model):
     product_name = models.CharField(max_length=255)
     product_type = models.ForeignKey(ProductType, on_delete=models.CASCADE, related_name='boycott_products')
     company_name= models.ForeignKey(BoycottCompanies, on_delete=models.CASCADE, related_name='boycott_products')
@@ -67,3 +67,32 @@ class SystemMessage(models.Model):
     
     def __str__(self):
         return self.name
+
+
+
+class AlternativeCompanies(models.Model):
+    company_name = models.CharField(max_length=255)
+    description = models.TextField(null=True, blank=True)
+    website = models.URLField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Alternative Company'
+        verbose_name_plural = 'Alternative Companies'
+
+    def __str__(self):
+        return self.company_name
+
+
+class AlternativeProducts(models.Model):
+    product_name = models.CharField(max_length=255)
+    product_type = models.ForeignKey(ProductType, on_delete=models.CASCADE, related_name='alternatives')
+    company_name = models.ForeignKey(AlternativeCompanies, on_delete=models.CASCADE, related_name='products')
+    image_url = models.URLField(null=True, blank=True)
+    alternative_to = models.ForeignKey(BoycottProducts, on_delete=models.CASCADE, related_name='alternatives', null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Alternative Product'
+        verbose_name_plural = 'Alternative Products'
+
+    def __str__(self):
+        return self.product_name

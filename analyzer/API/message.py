@@ -39,10 +39,10 @@ async def analyze_img(image_url):
     try:
         from analyzer.models import SystemMessage
         system_msg = await database_sync_to_async(lambda: SystemMessage.objects.filter(name="image_analysis", is_active=True).first())() 
-        system_content = system_msg.message if system_msg else "You are a product identification AI. Analyze the image and identify the product and its company. Describe what this product is used for. If no product is visible, answer 'None'. Respond in this exact format: [Company Name, long Usage Description, Product Name]."
+        system_content = system_msg.message if system_msg else "You are a product identification AI. Analyze the image and identify the product and its company. If no product is visible, answer 'None'. Respond in this exact format: [Company Name, Product Type]."
     except Exception as e:
         logger.error(f"Error fetching image analysis system message: {str(e)}")
-        system_content = "You are a product identification AI. Analyze the image and identify the product and its company. Describe what this product is used for. If no product is visible, answer 'None'. Respond in this exact format: [Company Name, long Usage Description, Product Name]."
+        system_content = "You are a product identification AI. Analyze the image and identify the product and its company. Describe what this product is used for. If no product is visible, answer 'None'. Respond in this exact format: [Company Name, Product Type]."
     
     message = [
         {
