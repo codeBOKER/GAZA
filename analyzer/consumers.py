@@ -49,7 +49,9 @@ class AnalyzeConsumer(AsyncWebsocketConsumer):
             
             company_coroutine = check_company_and_get_cause(company_name)
             cause_text = await asyncio.wait_for(company_coroutine, timeout=25.0)
-            
+
+            await self.send(text_data=json.dumps({"type": "company", "value": company_name}))
+            await self.send(text_data=json.dumps({"type": "product_type", "value": parsed[1]}))
             if cause_text:
                 cause_coroutine = genrate_text_cause(cause_text)
                 cause = await asyncio.wait_for(cause_coroutine, timeout=25.0) or ""
@@ -69,16 +71,13 @@ class AnalyzeConsumer(AsyncWebsocketConsumer):
                     await self.send(text_data=json.dumps({"type": "status", "value": "alternative"}))
                 else:
                     # Save as new alternative product for future reference
-                    await save_product_as_alternative(parsed[0], parsed[1], resized_base64)
+                    await save_product_as_alternative(company_name, parsed[1], resized_base64)
                     cause = "Company not in boycott list - Consider as potential alternative"
                     logger.info(f"New company saved as alternative: {company_name}")
                     await self.send(text_data=json.dumps({"type": "status", "value": "unknown"}))
             
-            await self.send(text_data=json.dumps({"type": "company", "value": parsed[0]}))
-            
-            await self.send(text_data=json.dumps({"type": "usage", "value": cause}))
-            
-            await self.send(text_data=json.dumps({"type": "product", "value": parsed[1]}))
+            await self.send(text_data=json.dumps({"type": "case", "value": cause}))
+
 
         except asyncio.TimeoutError:
             await self.send(text_data=json.dumps({"type": "error", "value": "Request timed out after 25 seconds"}))
