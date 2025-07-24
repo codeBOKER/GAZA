@@ -101,30 +101,50 @@ def save_product_as_alternative(company_name: str, product_type: str, image=None
         return None
 
 @database_sync_to_async
-def get_alternatives_for_boycott_product(boycott_product_id):
-    """Get alternative products for a specific boycott product"""
+def get_alternatives_for_boycott_product(product_type=None):
+    """
+    Get alternative products for a specific boycott product.
+    
+    Args:
+        boycott_product_id: ID of the boycott product to find alternatives for
+        product_type: Optional product type to filter alternatives by
+        use_fuzzy_matching: If True, uses fuzzy matching for product types
+        
+    Returns:
+        List of alternative products with their details
+    """
     from analyzer.models import AlternativeProducts
+    from analyzer.utils.fuzzy_match import is_similar_product_type
     
     try:
-        alternatives = AlternativeProducts.objects.filter(
-            alternative_to_id=boycott_product_id
-        ).select_related('company_name', 'product_type')
+        # Get all alternatives for this boycott product
+        alternatives = AlternativeProducts.objects.all()
+    
+        # Filter by product type with optional fuzzy matching
+        result = []
+        for alt in alternatives:
+            alt_product_type = alt.product_type.product_type
+            
+            if is_similar_product_type(product_type, alt_product_type):
+                result.append({
+                    'product_name': alt.product_name,
+                    'company_name': alt.company_name.company_name,
+                    'product_type': alt_product_type,
+                    'company_website': alt.company_name.website,
+                    'image_url': alt.image_url,
+                    'is_exact_match': (alt_product_type.lower() == product_type.lower())
+                })
         
-        return [{
-            'product_name': alt.product_name,
-            'company_name': alt.company_name.company_name,
-            'product_type': alt.product_type.product_type,
-            'company_website': alt.company_name.website
-        } for alt in alternatives]
+        return result
         
     except Exception as e:
-        logger.error(f"Error getting alternatives: {str(e)}")
+        logger.error(f"Error getting alternatives: {str(e)}", exc_info=True)
         return []
 
 def is_alternative_product_sync(company_name: str, product_type: str):
     """Synchronous version - Check if a product from a company is in the alternative products list"""
     from analyzer.models import AlternativeProducts
-    from analyzer.utils.fuzzy_match import calculate_similarity
+    from analyzer.utils.fuzzy_match import calculate_similarity, is_similar_product_type
     
     try:
         company_name = company_name.strip()
@@ -143,13 +163,25 @@ def is_alternative_product_sync(company_name: str, product_type: str):
         
         # First try exact match (case-insensitive)
         exact_match = AlternativeProducts.objects.filter(
-            company_name__company_name__icontains=company_name,
-            product_type__product_type__icontains=product_type
+            company_name__company_name__iexact=company_name,
+            product_type__product_type__iexact=product_type
         ).first()
         
         if exact_match:
             logger.info(f"[SYNC] Found exact alternative match: {exact_match.company_name.company_name} - {exact_match.product_type.product_type}")
             return True
+            
+        # Try case-insensitive match for company with fuzzy product type match
+        similar_products = AlternativeProducts.objects.filter(
+            company_name__company_name__iexact=company_name
+        ).select_related('product_type')
+        
+        for product in similar_products:
+            if is_similar_product_type(product_type, product.product_type.product_type):
+                logger.info(f"[SYNC] Found alternative with similar product type: "
+                          f"{product.company_name.company_name} - {product.product_type.product_type} "
+                          f"(input type: {product_type})")
+                return True
         
         # If no exact match, try fuzzy matching
         logger.info(f"[SYNC] No exact alternative match, trying fuzzy matching for: {company_name} - {product_type}")
@@ -164,11 +196,14 @@ def is_alternative_product_sync(company_name: str, product_type: str):
             
             logger.info(f"[SYNC] Comparing with DB entry: '{alt_product.company_name.company_name}' - '{alt_product.product_type.product_type}' (scores: {company_similarity:.2f}, {product_similarity:.2f})")
             
-            # Both company and product type should have good similarity
-            if company_similarity >= 0.75 and product_similarity >= 0.75:
-                logger.info(f"[SYNC] Found fuzzy alternative match: {alt_product.company_name.company_name} - {alt_product.product_type.product_type} (scores: {company_similarity:.2f}, {product_similarity:.2f})")
-                found_match = True
-                break
+            # Check if company is similar and product types match (either exactly or through fuzzy matching)
+            if company_similarity >= 0.75:
+                # Use the new fuzzy product type matching
+                if is_similar_product_type(product_type, alt_product.product_type.product_type):
+                    logger.info(f"[SYNC] Found fuzzy alternative match: {alt_product.company_name.company_name} - {alt_product.product_type.product_type} "
+                              f"(company score: {company_similarity:.2f}, product types: '{product_type}' ~ '{alt_product.product_type.product_type}')")
+                    found_match = True
+                    break
         
         if not found_match:
             logger.info(f"[SYNC] No fuzzy alternative match found for: {company_name} - {product_type}")
@@ -187,4 +222,3 @@ def is_alternative_product(company_name: str, product_type: str):
     result = is_alternative_product_sync(company_name, product_type)
     logger.info(f"[ASYNC] is_alternative_product returning: {result}")
     return result
-    

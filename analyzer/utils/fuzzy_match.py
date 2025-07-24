@@ -1,6 +1,7 @@
 import unicodedata
 import re
 from difflib import SequenceMatcher
+from typing import List, Dict, Tuple, Optional
 
 def normalize_company_name(name):
     """
@@ -72,6 +73,71 @@ def is_fuzzy_match(input_name, db_name, threshold=0.75):
     """
     similarity = calculate_similarity(input_name, db_name)
     return similarity >= threshold
+
+# Common product type variations mapping
+PRODUCT_TYPE_VARIATIONS = {
+    'milk': ['milk', 'dairy', 'cream', 'cheese', 'yogurt', 'butter', 'lactose'],
+    'coffee': ['coffee', 'espresso', 'latte', 'cappuccino', 'americano', 'mocha'],
+    'chocolate': ['chocolate', 'cocoa', 'candy', 'sweets', 'choc'],
+    'soda': ['soda', 'soft drink', 'pop', 'fizzy drink', 'cola', 'carbonated'],
+    'water': ['water', 'mineral water', 'spring water', 'sparkling water', 'still water'],
+    'snacks': ['snacks', 'chips', 'crisps', 'nuts', 'trail mix', 'snack bar']
+}
+
+def get_product_type_variations(product_type: str) -> List[str]:
+    """
+    Get all variations of a product type including common synonyms and variations.
+    
+    Args:
+        product_type: The product type to get variations for
+        
+    Returns:
+        List of variations including the original product type
+    """
+    product_type = product_type.lower().strip()
+    variations = set([product_type])
+    
+    # Add variations from the predefined mapping
+    for base_type, variants in PRODUCT_TYPE_VARIATIONS.items():
+        if any(v in product_type for v in variants):
+            variations.update(variants)
+    
+    # Add common variations
+    if ' ' in product_type:
+        variations.add(product_type.replace(' ', '-'))
+        variations.add(product_type.replace(' ', '_'))
+    
+    return list(variations)
+
+def is_similar_product_type(type1: str, type2: str, threshold: float = 0.7) -> bool:
+    """
+    Check if two product types are similar using fuzzy matching and variations.
+    
+    Args:
+        type1: First product type
+        type2: Second product type
+        threshold: Minimum similarity score (0.0 to 1.0)
+        
+    Returns:
+        bool: True if the product types are similar
+    """
+    if not type1 or not type2:
+        return False
+    
+    # Get all variations of both product types
+    variations1 = get_product_type_variations(type1)
+    variations2 = get_product_type_variations(type2)
+    
+    # Check if any variation of type1 matches any variation of type2
+    for v1 in variations1:
+        for v2 in variations2:
+            if v1 == v2:
+                return True
+            similarity = SequenceMatcher(None, v1, v2).ratio()
+            if similarity >= threshold:
+                return True
+    
+    return False
 
 def find_best_company_match(input_name, company_list, threshold=0.75):
     """

@@ -27,6 +27,24 @@ def home_view(request):
                     resultDiv.innerHTML += `<p><strong>status:</strong> ${data.value}</p>`;
                 } else if (data.type === "case") {
                     resultDiv.innerHTML += `<p><strong>Case:</strong> ${data.value}</p>`;
+                } else if (data.type === "alternative") {
+                    let html = '<div class="alternatives-container">';
+                    html += '<h3>Alternative Products:</h3>';
+                    
+                    data.value.forEach(alt => {
+                        html += `
+                        <div class="alternative-product" style="margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                            <div><strong>Product:</strong> ${alt.product_name || 'N/A'}</div>
+                            <div><strong>Company:</strong> ${alt.company_name || 'N/A'}</div>
+                            <div><strong>Type:</strong> ${alt.product_type || 'N/A'}</div>
+                            <div><strong>image:</strong> <img src="${alt.image_url}" style="max-width: 200px;" /></div>
+                            ${alt.company_website ? `<div><strong>Website:</strong> <a href="${alt.company_website}" target="_blank">${alt.company_website}</a></div>` : ''}
+                            ${alt.is_exact_match === false ? '<div style="color: #666;">(Similar product type match)</div>' : ''}
+                        </div>`;
+                    });
+                    
+                    html += '</div>';
+                    resultDiv.innerHTML += html;
                 } else if (data.type === "error") {
                     resultDiv.innerHTML += `<p style="color:red;">Error: ${data.value}</p>`;
                 }
