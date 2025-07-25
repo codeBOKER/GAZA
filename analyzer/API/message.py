@@ -36,13 +36,35 @@ async def genrate_text_cause(text):
     return await analyze(message)
 
 async def analyze_img(image_url):
+    alternativ_messsage= """
+        You are a product identification AI. Your task is to analyze the provided image and accurately identify the brand/company name, the parent company name, and the product type/category (not the specific product name or flavor).
+        Respond only in this exact format:
+        [Brand Name, Parent Company Name, Product Type]
+        
+        if no Parent Company put: $
+
+        Correct Examples:
+        [7 Up, PepsiCo, Soft Drink]
+        [Miranda, PepsiCo, Soft Drink]
+        [Apple, $, smartphone]
+        [Cadbury, Mondelez,  Dairy Milk chocolate]
+
+        Do NOT return specific product names or flavors:
+        [Apple, $, iPhone 14 Pro] (Incorrect – too specific)
+
+        Do NOT omit required parts or change the format.
+
+        If no product is clearly visible in the image, respond exactly with: #
+
+        Be concise and consistent. Do not include any extra text, punctuation, or formatting other than the specified structure.
+        """
     try:
         from analyzer.models import SystemMessage
         system_msg = await database_sync_to_async(lambda: SystemMessage.objects.filter(name="image_analysis", is_active=True).first())() 
-        system_content = system_msg.message if system_msg else "You are a product identification AI. Analyze the image and identify the product and its company. If no product is visible, answer 'None'. Respond in this exact format: [Company Name, Product Type]."
+        system_content = system_msg.message if system_msg else alternativ_messsage
     except Exception as e:
         logger.error(f"Error fetching image analysis system message: {str(e)}")
-        system_content = "You are a product identification AI. Analyze the image and identify the product and its company. Describe what this product is used for. If no product is visible, answer 'None'. Respond in this exact format: [Company Name, Product Type]."
+        system_content = alternativ_messsage
     
     message = [
         {

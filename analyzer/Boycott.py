@@ -4,37 +4,70 @@ from channels.db import database_sync_to_async
 logger = logging.getLogger(__name__)
 
 @database_sync_to_async
-def check_company_and_get_cause(company: str):
+def check_company_and_get_cause(company: str, company_parent_name=None):
     from analyzer.models import BoycottCompanies
     from analyzer.utils.fuzzy_match import find_best_company_match
-    
+    from django.db.models import Q
+
     try:
-        logger.info(f"Checking company: {company}")
-        if not isinstance(company, str):
-            logger.error(f"Company is not a string: {type(company)}")
+        logger.info(f"Checking company: {company} and parent company: {company_parent_name}")
+
+        # Validate and clean input
+        names_to_check = []
+        if isinstance(company, str) and company.strip():
+            names_to_check.append(company.strip())
+        if company_parent_name != None:
+            names_to_check.append(company_parent_name.strip())
+
+        if not names_to_check:
+            logger.error("Both company and parent name are empty or invalid.")
             return None
-        
-        company = company.strip()
-        
-        # First try exact match (case-insensitive)
-        exact_match = BoycottCompanies.objects.filter(company_name__icontains=company).first()
+
+        # 1. Try exact match (case-insensitive) on any input
+        exact_match = BoycottCompanies.objects.filter(
+            Q(company_name__iexact=names_to_check[0]) |
+            Q(company_name__iexact=names_to_check[1]) if len(names_to_check) > 1 else Q()
+        ).first()
+
         if exact_match:
-            logger.info(f"Found exact match: {exact_match.company_name} for input: {company}")
+            logger.info(f"Exact match found: {exact_match.company_name}")
             return exact_match.cause
-        
-        # If no exact match, try fuzzy matching
-        logger.info(f"No exact match found, trying fuzzy matching for: {company}")
+
+        # 2. Try partial match
+        partial_query = Q(company_name__icontains=names_to_check[0])
+        if len(names_to_check) > 1:
+            partial_query |= Q(company_name__icontains=names_to_check[1])
+
+        partial_match = BoycottCompanies.objects.filter(partial_query).first()
+        if partial_match:
+            logger.info(f"Partial match found: {partial_match.company_name}")
+            return partial_match.cause
+
+        # 3. Fuzzy match with both names
         all_companies = BoycottCompanies.objects.all()
-        
-        best_match, similarity_score = find_best_company_match(company, all_companies, threshold=0.75)
-        
+        candidates = [(obj, obj.company_name) for obj in all_companies]
+
+        best_match = None
+        best_score = 0
+
+        for name in names_to_check:
+            match, score = find_best_company_match(name, candidates, threshold=0.75)
+            if match and score > best_score:
+                best_match = match
+                best_score = score
+
         if best_match:
-            logger.info(f"Found fuzzy match: {best_match.company_name} (similarity: {similarity_score:.2f}) for input: {company}")
+            logger.info(f"Fuzzy match found: {best_match.company_name} (similarity: {best_score:.2f})")
             return best_match.cause
-        else:
-            logger.info(f"No fuzzy match found for company: {company}")
-            return None
-            
+
+        logger.info(f"No match found for: {company} or {company_parent_name}")
+        return None
+
+    except Exception as e:
+        logger.error(f"Error checking company: {str(e)}")
+        raise ValueError(f"Unsupported company: {company}, error: {str(e)}")
+
+
     except Exception as e:
         logger.error(f"Error checking company: {str(e)}")
         raise ValueError(f"Unsupported company: {company}, error: {str(e)}")
