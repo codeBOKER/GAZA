@@ -6,10 +6,11 @@ import CameraView from '@/components/CameraView';
 
 export default function CameraScreen() {
   const [hasPermission, setHasPermission] = useState(false);
-  const [pressTimer, setPressTimer] = useState<number | null>(null);
+
   const [isContainerExpanded, setIsContainerExpanded] = useState(true); // Track container state
   const [screenDimensions, setScreenDimensions] = useState(Dimensions.get('window'));
   const [isBoycottAlert, setIsBoycottAlert] = useState(false); // TRUE = red (boycott), FALSE = green (safe)
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
   
   // Update screen dimensions on changes (orientation, etc.)
   useEffect(() => {
@@ -116,22 +117,16 @@ export default function CameraScreen() {
   }, []);
 
   const takePicture = () => {
-    Alert.alert('Success', 'Photo captured successfully!');
+    // Simulate capturing an image - in real app this would be actual camera capture
+    setCapturedImage('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k='); // Placeholder base64 image
   };
 
-  const handlePressIn = () => {
-    const timer = setTimeout(() => {
-      takePicture();
-    }, 600); // 0.6 second
-    setPressTimer(timer);
+  const confirmSend = () => {
+    Alert.alert('Success', 'Image sent for analysis!');
+    setCapturedImage(null); // Reset to camera view
   };
 
-  const handlePressOut = () => {
-    if (pressTimer) {
-      clearTimeout(pressTimer);
-      setPressTimer(null);
-    }
-  };
+
 
   const pickImage = () => {
     Alert.alert('Info', 'Select from gallery pressed');
@@ -167,18 +162,15 @@ export default function CameraScreen() {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity
-        style={styles.container}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        activeOpacity={1}>
-      {/* Camera background */}
-      <CameraView style={styles.cameraView} />
+      {/* Camera background or captured image */}
+      {capturedImage ? (
+        <Image source={{ uri: capturedImage }} style={styles.cameraView} />
+      ) : (
+        <CameraView style={styles.cameraView} />
+      )}
       
-      {/* Scanner overlay for the camera area - touchable for photo capture */}
-      <View
-        style={styles.scannerOverlay}
-      >
+      {/* Scanner overlay for the camera area */}
+      <View style={styles.scannerOverlay}>
         <View style={styles.scannerFrame}>
           <View style={[styles.corner, styles.topLeft]} />
           <View style={[styles.corner, styles.topRight]} />
@@ -186,10 +178,21 @@ export default function CameraScreen() {
           <View style={[styles.corner, styles.bottomRight]} />
         </View>
         <View style={styles.instructionContainer}>
-          <Text style={styles.instructionText}>Hold for 1 second to capture</Text>
+          <Text style={styles.instructionText}>
+            {capturedImage ? 'Confirm to send this image' : 'Tap the button below to capture'}
+          </Text>
         </View>
+        <TouchableOpacity 
+          style={capturedImage ? styles.sendButton : styles.captureButton} 
+          onPress={capturedImage ? confirmSend : takePicture}
+        >
+          {capturedImage ? (
+            <Text style={styles.sendIcon}>➤</Text>
+          ) : (
+            <View style={styles.captureButtonInner} />
+          )}
+        </TouchableOpacity>
       </View>
-      </TouchableOpacity>
       {/* White container taking 75% from bottom - blocks touch */}
       <Animated.View style={[styles.whiteContainer, { height: containerHeight }]} pointerEvents="auto">
         {/* Dynamic color circle on top left */}
@@ -364,7 +367,7 @@ const styles = StyleSheet.create({
   },
   scannerFrame: {
     width: '80%',
-    height: '200%',
+    height: '180%',
     position: 'relative',
   },
   corner: {
@@ -428,6 +431,8 @@ const styles = StyleSheet.create({
     lineHeight: 25,
   },
   captureButton: {
+    position: 'absolute',
+    bottom: '-90%',
     width: 70,
     height: 70,
     borderRadius: 35,
@@ -442,6 +447,22 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     backgroundColor: 'white',
   },
+  sendButton: {
+    position: 'absolute',
+    bottom: '-90%',
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 30,
+  },
+  sendIcon: {
+    color: 'white',
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
   instructionText: {
     color: 'white',
     fontSize: 12,
@@ -449,7 +470,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   instructionContainer: {
-    top: '10%',
+    top: '5%',
     backgroundColor: 'rgba(117, 117, 117, 0.2)',
     paddingHorizontal: 12,
     paddingVertical: 6,
