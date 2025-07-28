@@ -23,15 +23,17 @@ def check_company_and_get_cause(company: str, company_parent_name=None):
             logger.error("Both company and parent name are empty or invalid.")
             return None
 
+        # There proplem with this exact match
         # 1. Try exact match (case-insensitive) on any input
-        exact_match = BoycottCompanies.objects.filter(
-            Q(company_name__iexact=names_to_check[0]) |
-            Q(company_name__iexact=names_to_check[1]) if len(names_to_check) > 1 else Q()
-        ).first()
+        # logger.info(f"list names: {names_to_check}")
+        # exact_match = BoycottCompanies.objects.filter(
+        #     Q(company_name__iexact=names_to_check[0]) |
+        #     Q(company_name__iexact=names_to_check[1]) if len(names_to_check) > 1 else Q()
+        # ).first()
 
-        if exact_match:
-            logger.info(f"Exact match found: {exact_match.company_name}")
-            return exact_match.cause
+        # if exact_match:
+        #     logger.info(f"Exact match found: {exact_match.company_name}")
+        #     return exact_match.cause
 
         # 2. Try partial match
         partial_query = Q(company_name__icontains=names_to_check[0])
@@ -45,13 +47,11 @@ def check_company_and_get_cause(company: str, company_parent_name=None):
 
         # 3. Fuzzy match with both names
         all_companies = BoycottCompanies.objects.all()
-        candidates = [(obj, obj.company_name) for obj in all_companies]
-
         best_match = None
         best_score = 0
 
         for name in names_to_check:
-            match, score = find_best_company_match(name, candidates, threshold=0.75)
+            match, score = find_best_company_match(name, all_companies, threshold=0.75)
             if match and score > best_score:
                 best_match = match
                 best_score = score
@@ -167,6 +167,7 @@ def get_alternatives_for_boycott_product(product_type=None):
                     'image_url': alt.image_url,
                     'is_exact_match': (alt_product_type.lower() == product_type.lower())
                 })
+                if len(result) ==6 : break
         
         return result
         

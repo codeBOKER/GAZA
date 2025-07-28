@@ -43,7 +43,16 @@ class AnalyzeConsumer(AsyncWebsocketConsumer):
         data = json.loads(text_data)
         image_data = data['image_data']
 
-        file_bytes = base64.b64decode(image_data)
+        # Extract base64 data from data URL
+        if image_data.startswith('data:image/'):
+            base64_data = image_data.split(',')[1]
+        else:
+            base64_data = image_data
+
+        file_bytes = base64.b64decode(base64_data)
+
+
+        # file_bytes = base64.b64decode(image_data)
         resized_base64, ext, saved_filename = await asyncio.to_thread(
             convert_and_resize_image, file_bytes, max_size=(800, 800), quality=70
         )
@@ -67,11 +76,11 @@ class AnalyzeConsumer(AsyncWebsocketConsumer):
                 await self.send(text_data=json.dumps({"type": "company", "value": company_name}))
                 await self.send(text_data=json.dumps({"type": "product_type", "value": product_type}))
                 if cause_text:
-                    await self.send(text_data=json.dumps({"type": "status", "value": "boycott"}))
+                    await self.send(text_data=json.dumps({"type": "boycott", "value": True}))
                     cause_coroutine = genrate_text_cause(cause_text)
                     cause = await asyncio.wait_for(cause_coroutine, timeout=25.0) or ""
                     logger.info(f"Formatted cause: {cause}")
-                    await self.send(text_data=json.dumps({"type": "case", "value": cause}))
+                    await self.send(text_data=json.dumps({"type": "cause", "value": cause}))
                     
                     # Get and send alternatives
                     alternatives = await get_alternatives_for_boycott_product(product_type)
@@ -80,7 +89,7 @@ class AnalyzeConsumer(AsyncWebsocketConsumer):
                         "value": alternatives
                     }))
                 else:
-                    await self.send(text_data=json.dumps({"type": "status", "value": "safe to buy"}))
+                    await self.send(text_data=json.dumps({"type": "boycott", "value": False}))
                     # Check if it's an alternative company
                     from analyzer.Boycott import is_alternative_product, save_product_as_alternative
                     
@@ -91,14 +100,14 @@ class AnalyzeConsumer(AsyncWebsocketConsumer):
                     if is_alternative:
                         cause = "This is an alternative/ethical product - Safe to buy!"
                         logger.info(f"Alternative company found: {company_name}")
-                        await self.send(text_data=json.dumps({"type": "status", "value": "alternative"}))
-                        await self.send(text_data=json.dumps({"type": "case", "value": cause}))
+                        await self.send(text_data=json.dumps({"type": "boycott", "value": False}))
+                        await self.send(text_data=json.dumps({"type": "cause", "value": cause}))
                     else:
                         # Save as new alternative product for future reference
                         await save_product_as_alternative(company_name, product_type, resized_base64)
                         cause = "Company not in boycott list - Consider as potential alternative"
                         logger.info(f"New company saved as alternative: {company_name}")    
-                        await self.send(text_data=json.dumps({"type": "case", "value": cause}))
+                        await self.send(text_data=json.dumps({"type": "cause", "value": cause}))
                 
                 
 

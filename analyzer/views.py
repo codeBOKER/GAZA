@@ -23,10 +23,10 @@ def home_view(request):
                     resultDiv.innerHTML += `<p><strong>Company:</strong> ${data.value}</p>`;
                 } else if (data.type === "product_type") {
                     resultDiv.innerHTML += `<p><strong>Product Type:</strong> ${data.value}</p>`;
-                } else if (data.type === "status") {
-                    resultDiv.innerHTML += `<p><strong>status:</strong> ${data.value}</p>`;
-                } else if (data.type === "case") {
-                    resultDiv.innerHTML += `<p><strong>Case:</strong> ${data.value}</p>`;
+                } else if (data.type === "boycott") {
+                    resultDiv.innerHTML += `<p><strong>boycott:</strong> ${data.value}</p>`;
+                } else if (data.type === "cause") {
+                    resultDiv.innerHTML += `<p><strong>Cause:</strong> ${data.value}</p>`;
                 } else if (data.type === "alternative") {
                     let html = '<div class="alternatives-container">';
                     html += '<h3>Alternative Products:</h3>';
