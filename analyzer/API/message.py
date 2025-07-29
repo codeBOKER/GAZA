@@ -1,7 +1,8 @@
 import asyncio
 import logging
+import time
 from huggingface_hub.utils import HfHubHTTPError
-from requests.exceptions import HTTPError, RequestException
+from requests.exceptions import HTTPError, RequestException, ConnectionError, Timeout
 from .API_keys import get_correct_api, rigister_key_sotp_datetime, initialize_client
 from channels.db import database_sync_to_async
 
@@ -102,6 +103,7 @@ async def analyze(message: list) -> str:
                 client.chat.completions.create,
                 model=model,
                 messages=message,
+                temperature=0,
             )
             return completion.choices[0].message.content
 
@@ -127,6 +129,14 @@ async def analyze(message: list) -> str:
             else:
                 logger.error(f"HTTP error: {str(e)}")
                 raise
+
+        except (ConnectionError, Timeout) as e:
+            logger.warning("Connection/timeout error. Fetching new API key...")
+            await rigister_key_sotp_datetime(key)
+            key = await get_correct_api()
+            if key is None:
+                raise Exception("All keys exhausted or invalid. Please try again later.")
+            continue
 
         except RequestException as e:
             logger.error(f"Request error: {str(e)}")

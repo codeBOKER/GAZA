@@ -68,6 +68,11 @@ class AnalyzeConsumer(AsyncWebsocketConsumer):
             
             if not company_name:
                 await self.send(text_data=json.dumps({"type": "error", "value": "Invalid image or response format"}))
+                await self.send(text_data=json.dumps({"type": "company", "value": "Image NOT recognized"}))
+                await self.send(text_data=json.dumps({"type": "boycott", "value": False}))
+                await self.send(text_data=json.dumps({"type": "product_type", "value":""}))
+                await self.send(text_data=json.dumps({"type": "cause", "value": ""}))
+                await self.send(text_data=json.dumps({"type": "alternative", "value": ""}))
                 return
             else:
                 company_coroutine = check_company_and_get_cause(company_name, company_parent_name)
@@ -114,5 +119,14 @@ class AnalyzeConsumer(AsyncWebsocketConsumer):
 
         except asyncio.TimeoutError:
             await self.send(text_data=json.dumps({"type": "error", "value": "Request timed out after 25 seconds"}))
+            await self.send(text_data=json.dumps({"type": "company", "value": "Timed out after 25 seconds"}))
+            await self.send(text_data=json.dumps({"type": "boycott", "value": False}))
+            await self.send(text_data=json.dumps({"type": "product_type", "value":""}))
+            await self.send(text_data=json.dumps({"type": "cause", "value": ""}))
         except Exception as e:
             await self.send(text_data=json.dumps({"type": "error", "value": str(e)}))
+            await self.send(text_data=json.dumps({"type": "company", "value": "Error: Try again"}))
+            await self.send(text_data=json.dumps({"type": "boycott", "value": False}))
+            await self.send(text_data=json.dumps({"type": "product_type", "value":""}))
+            await self.send(text_data=json.dumps({"type": "cause", "value": ""}))
+            
