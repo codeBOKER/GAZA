@@ -2,16 +2,29 @@ import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, View, TouchableOpacity, Alert, Text, Animated, PanResponder, Dimensions, Image, ScrollView } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
-import CameraView from '@/components/CameraView';
+import CameraView, { CameraViewRef } from '@/components/CameraView';
+import * as FileSystem from 'expo-file-system';
+import { useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 
+const WS_URL = '';
 export default function CameraScreen() {
-  const [hasPermission, setHasPermission] = useState(false);
+  const [permission, requestPermission] = useCameraPermissions();
+  const cameraRef = useRef<CameraViewRef>(null);
 
-  const [isContainerExpanded, setIsContainerExpanded] = useState(true); // Track container state
+  const [isContainerExpanded, setIsContainerExpanded] = useState(true); 
   const [screenDimensions, setScreenDimensions] = useState(Dimensions.get('window'));
-  const [isBoycottAlert, setIsBoycottAlert] = useState(false); // TRUE = red (boycott), FALSE = green (safe)
+  const [isBoycottAlert, setIsBoycottAlert] = useState(false); 
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  
+  const [companyName, setcompanyName] = useState<string | null>(null);
+  const [cause, setCause] = useState<string | null>(null);
+  const [productType, setProductType] = useState<string | null>(null);
+  const [alternativeItems, setAlternativeItems] = useState<any[]>([]);
+
+
+  useEffect(() => {
+    
+  })
   // Update screen dimensions on changes (orientation, etc.)
   useEffect(() => {
     const subscription = Dimensions.addEventListener('change', ({ window }) => {
@@ -101,35 +114,74 @@ export default function CameraScreen() {
     })
   ).current;
   
-  useEffect(() => {
-    // Request permissions when component mounts
-    const requestPermissions = async () => {
-      try {
-        // In a real implementation, we would request camera permissions here
-        setHasPermission(true);
-      } catch (error) {
-        console.error('Error requesting permissions:', error);
-        setHasPermission(false);
+  const takePicture = async () => {
+    if (cameraRef.current) {
+      const photo = await cameraRef.current.takePictureAsync();
+      if (photo?.uri) {
+        const base64 = await FileSystem.readAsStringAsync(photo.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        const base64Image = `data:image/jpeg;base64,${base64}`;
+        setCapturedImage(base64Image);
+      }
+    }
+  };
+
+
+  
+  const confirmSend = (base64Image: string) => {
+    setcompanyName("sending...");
+    setProductType("");
+    setCause("...");
+    setAlternativeItems([]);
+    setIsBoycottAlert(false)
+    const ws = new WebSocket(WS_URL);
+    ws.onopen = () => {
+      ws.send(JSON.stringify({
+        image_data: base64Image,
+      }));
+    };
+    setcompanyName("Analyzing...");
+    setCapturedImage(null);    
+    ws.onmessage = (event) => {
+      const response = JSON.parse(event.data);
+      const data = JSON.parse(event.data);
+      if (data.type === "company") {
+        setcompanyName(data.value);
+      } else if (data.type === "product_type") {
+        setProductType(data.value);
+      } else if (data.type === "boycott") {
+        setIsBoycottAlert(data.value);
+      } else if (data.type === "cause") {
+        setCause(data.value); 
+      } else if (data.type === "alternative") {
+        setAlternativeItems(data.value);
       }
     };
-    
-    requestPermissions();
-  }, []);
 
-  const takePicture = () => {
-    // Simulate capturing an image - in real app this would be actual camera capture
-    setCapturedImage('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k='); // Placeholder base64 image
-  };
+    ws.onerror = (error) => {
+      Alert.alert('Error', 'Failed to analyze image');
+      console.error('WebSocket error:', error);
+    };
+    ws.onclose = () => {
+      // Handle WebSocket close
+    };
+};
 
-  const confirmSend = () => {
-    Alert.alert('Success', 'Image sent for analysis!');
-    setCapturedImage(null); // Reset to camera view
-  };
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 1,
+    });
 
-
-
-  const pickImage = () => {
-    Alert.alert('Info', 'Select from gallery pressed');
+    if (!result.canceled) {
+      const base64 = await FileSystem.readAsStringAsync(result.assets[0].uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const base64Image = `data:image/jpeg;base64,${base64}`;
+      setCapturedImage(base64Image);
+    }
   };
   
   const collapseContainer = () => {
@@ -152,10 +204,13 @@ export default function CameraScreen() {
     }
   };
 
-  if (!hasPermission) {
+  if (!permission?.granted) {
     return (
       <View style={styles.container}>
         <Text>No access to camera</Text>
+        <TouchableOpacity onPress={requestPermission}>
+          <Text>Grant Camera Permission</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -163,11 +218,17 @@ export default function CameraScreen() {
   return (
     <View style={styles.container}>
       {/* Camera background or captured image */}
-      {capturedImage ? (
-        <Image source={{ uri: capturedImage }} style={styles.cameraView} />
-      ) : (
-        <CameraView style={styles.cameraView} />
-      )}
+      <TouchableOpacity 
+        style={styles.cameraView} 
+        onPress={capturedImage ? () => setCapturedImage(null) : undefined}
+        activeOpacity={capturedImage ? 0.8 : 1}
+      >
+        {capturedImage ? (
+          <Image source={{ uri: capturedImage }} style={styles.cameraView} />
+        ) : (
+          <CameraView ref={cameraRef} style={styles.cameraView} />
+        )}
+      
       
       {/* Scanner overlay for the camera area */}
       <View style={styles.scannerOverlay}>
@@ -184,7 +245,7 @@ export default function CameraScreen() {
         </View>
         <TouchableOpacity 
           style={capturedImage ? styles.sendButton : styles.captureButton} 
-          onPress={capturedImage ? confirmSend : takePicture}
+          onPress={capturedImage ? () => confirmSend(capturedImage) : takePicture}
         >
           {capturedImage ? (
             <Text style={styles.sendIcon}>➤</Text>
@@ -193,6 +254,7 @@ export default function CameraScreen() {
           )}
         </TouchableOpacity>
       </View>
+      </TouchableOpacity>
       {/* White container taking 75% from bottom - blocks touch */}
       <Animated.View style={[styles.whiteContainer, { height: containerHeight }]} pointerEvents="auto">
         {/* Dynamic color circle on top left */}
@@ -244,7 +306,9 @@ export default function CameraScreen() {
             <Text style={[
               styles.infoValue,
               isBoycottAlert && styles.strikethroughText
-            ]}>Coca cola</Text>
+            ]}>{companyName}
+            </Text>
+            <Text style={styles.infoValueSmall}> {productType}</Text>
           </View>
           
           {/* Separator line */}
@@ -254,10 +318,9 @@ export default function CameraScreen() {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Why: </Text>
             <Text style={styles.infoValueSmall}>
-              {isBoycottAlert 
-                ? "Supports Israeli military operations in Gaza" 
-                : "Ethical alternative that doesn't support violence"}
+              {cause}
             </Text>
+            
           </View>
           
           {/* Separator line */}
@@ -271,58 +334,25 @@ export default function CameraScreen() {
               showsVerticalScrollIndicator={false}
             >
               <View style={styles.alternativesGrid}>
-                {/* First row */}
-                <View style={styles.alternativeRow}>
-                  <View style={styles.alternativeItem}>
-                    <View style={styles.alternativeImagePlaceholder}>
-                      <Text style={styles.placeholderText}>IMG</Text>
+                { isBoycottAlert ? alternativeItems.map((alt, index) => (
+                  <View key={index} style={styles.alternativeRow}>
+                    <View style={styles.alternativeItem}>
+                      <View style={styles.alternativeImagePlaceholder}>
+                        {alt.image_url ? (
+                          <Image source={{ uri: alt.image_url }} style={styles.alternativeImage} />
+                        ) : (
+                          <Text style={styles.placeholderText}>IMG</Text>
+                        )}
+                      </View>
+                      <Text style={styles.alternativeCompanyName}>{alt.company_name || 'Unknown'}</Text>
+                      <Text style={styles.alternativeProductName}>{alt.product_name === alt.company_name ? alt.product_type : alt.product_name}</Text>
                     </View>
-                    <Text style={styles.alternativeCompanyName}>Pepsi</Text>
                   </View>
-                  
-                  <View style={styles.alternativeItem}>
-                    <View style={styles.alternativeImagePlaceholder}>
-                      <Text style={styles.placeholderText}>IMG</Text>
-                    </View>
-                    <Text style={styles.alternativeCompanyName}>Local Brand</Text>
-                  </View>
-                </View>
-                
-                {/* Second row */}
-                <View style={styles.alternativeRow}>
-                  <View style={styles.alternativeItem}>
-                    <View style={styles.alternativeImagePlaceholder}>
-                      <Text style={styles.placeholderText}>IMG</Text>
-                    </View>
-                    <Text style={styles.alternativeCompanyName}>7UP</Text>
-                  </View>
-                  
-                  <View style={styles.alternativeItem}>
-                    <View style={styles.alternativeImagePlaceholder}>
-                      <Text style={styles.placeholderText}>IMG</Text>
-                    </View>
-                    <Text style={styles.alternativeCompanyName}>Sprite</Text>
-                  </View>
-                </View>
-                
-                {/* Third row */}
-                <View style={styles.alternativeRow}>
-                  <View style={styles.alternativeItem}>
-                    <View style={styles.alternativeImagePlaceholder}>
-                      <Text style={styles.placeholderText}>IMG</Text>
-                    </View>
-                    <Text style={styles.alternativeCompanyName}>Fanta</Text>
-                  </View>
-                  
-                  <View style={styles.alternativeItem}>
-                    <View style={styles.alternativeImagePlaceholder}>
-                      <Text style={styles.placeholderText}>IMG</Text>
-                    </View>
-                    <Text style={styles.alternativeCompanyName}>Mountain Dew</Text>
-                  </View>
-                </View>
+                )):<Text style={styles.infoValue}> Alternative products will appeare here .. </Text> }
               </View>
             </ScrollView>
+              
+            
           </View>
         </View>
       </Animated.View>
@@ -484,6 +514,11 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     opacity: 0.3,
   },
+  alternativeImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+  },
   dragArea: {
     width: '100%',
     paddingVertical: 15,
@@ -526,6 +561,7 @@ const styles = StyleSheet.create({
   },
   alternativesSection: {
     paddingTop: 10,
+    flex: 1,
   },
   alternativesTitle: {
     fontSize: 18,
@@ -534,11 +570,13 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   alternativesScrollView: {
-    flex: 1,
-    maxHeight: 240,
+    maxHeight: 250,
   },
   alternativesGrid: {
-    paddingBottom: 5,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    paddingBottom: 10,
   },
   alternativeRow: {
     flexDirection: 'row',
@@ -549,10 +587,11 @@ const styles = StyleSheet.create({
   alternativeItem: {
     alignItems: 'center',
     width: '45%',
+    marginBottom: 15,
   },
   alternativeImagePlaceholder: {
     width: 150,
-    height: 150,
+    height: 170,
     backgroundColor: '#F0F0F0',
     borderRadius: 12,
     justifyContent: 'center',
@@ -572,6 +611,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '500',
   },
+  alternativeProductName: {
+    fontSize: 10,
+    color: '#999',
+    textAlign: 'center',
+    fontWeight: '400',
+    marginTop: 2,
+  },
+
   greenCircle: {
     position: 'absolute',
     top: 15,
