@@ -6,8 +6,9 @@ import CameraView, { CameraViewRef } from '@/components/CameraView';
 import * as FileSystem from 'expo-file-system';
 import { useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 
-const WS_URL = '';
+const WS_URL = process.env.EXPO_PUBLIC_WS_URL || 'ws://127.0.0.1:8000/ws/analyze/';
 export default function CameraScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraViewRef>(null);
@@ -20,11 +21,21 @@ export default function CameraScreen() {
   const [cause, setCause] = useState<string | null>(null);
   const [productType, setProductType] = useState<string | null>(null);
   const [alternativeItems, setAlternativeItems] = useState<any[]>([]);
-
+  const [country, setCountry] = useState(null);
 
   useEffect(() => {
-    
-  })
+    const fetchCountry = async () => {
+      try {
+        const res = await fetch('http://ip-api.com/json/');
+        const data = await res.json();
+        setCountry(data.country);
+      } catch (e) {
+        console.log('Failed to fetch country', e);
+      }
+    };
+
+    fetchCountry(); 
+  }, []);
   // Update screen dimensions on changes (orientation, etc.)
   useEffect(() => {
     const subscription = Dimensions.addEventListener('change', ({ window }) => {
@@ -129,19 +140,20 @@ export default function CameraScreen() {
 
 
   
-  const confirmSend = (base64Image: string) => {
-    setcompanyName("sending...");
+  const confirmSend = async (base64Image: string) => {
+    setcompanyName("Analyzing...");
     setProductType("");
     setCause("...");
     setAlternativeItems([]);
     setIsBoycottAlert(false)
+
     const ws = new WebSocket(WS_URL);
     ws.onopen = () => {
       ws.send(JSON.stringify({
         image_data: base64Image,
+        country: country,
       }));
     };
-    setcompanyName("Analyzing...");
     setCapturedImage(null);    
     ws.onmessage = (event) => {
       const response = JSON.parse(event.data);
