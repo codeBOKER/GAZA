@@ -73,16 +73,16 @@ def check_company_and_get_cause(company: str, company_parent_name=None):
         raise ValueError(f"Unsupported company: {company}, error: {str(e)}")
 
 @database_sync_to_async
-def save_product_as_alternative(company_name: str, product_type: str, image=None):
+def save_product_as_alternative(company_name: str, product_type: str, image=None, country=None):
     """Save a product as an alternative when it's not found in boycott list"""
-    from analyzer.models import AlternativeCompanies, AlternativeProducts, ProductType
+    from analyzer.models import AlternativeCompanies, AlternativeProducts, ProductType, Country
     from analyzer.utils.imgur_upload import upload_image_to_imgur
     
     try:
         if not company_name or not product_type:
             raise ValueError("Company name and product type are required")
             
-        logger.info(f"Saving alternative product: {company_name} - {product_type}")
+        logger.info(f"Saving alternative product: {company_name} - {product_type} from {country or 'unknown location'}")
         
         # Upload image to Imgur if image provided
         imgur_url = None
@@ -100,7 +100,7 @@ def save_product_as_alternative(company_name: str, product_type: str, image=None
             # Get or create the alternative company
             alt_company, created = AlternativeCompanies.objects.get_or_create(
                 company_name=company_name,
-                defaults={'description': f'Alternative company identified from image analysis'}
+                defaults={'description': f'Alternative company identified from image analysis{f" in {country}" if country else ""}'}
             )
             
             # Get or create the product type
@@ -108,14 +108,22 @@ def save_product_as_alternative(company_name: str, product_type: str, image=None
                 product_type=product_type
             )
             
-            # Create the alternative product with image URL
-            # Use company_name for product_name since we don't have a separate product name
+            # Get or create country if provided
+            country_obj = None
+            if country:
+                country_obj, created = Country.objects.get_or_create(name=country)
+            
+            # Create the alternative product
             alt_product, created = AlternativeProducts.objects.get_or_create(
-                product_name=company_name,  # Using company_name as product_name
+                product_name=company_name,
                 company_name=alt_company,
                 product_type=prod_type,
                 defaults={'image_url': imgur_url}
             )
+            
+            # Add country to the product if provided
+            if country_obj:
+                alt_product.countries.add(country_obj)
             
             # Update image_url if product already exists but doesn't have an image
             if not created and imgur_url and not alt_product.image_url:
@@ -134,7 +142,7 @@ def save_product_as_alternative(company_name: str, product_type: str, image=None
         return None
 
 @database_sync_to_async
-def get_alternatives_for_boycott_product(product_type=None):
+def get_alternatives_for_boycott_product(product_type=None, country=None):
     """
     Get alternative products for a specific boycott product.
     
@@ -151,8 +159,7 @@ def get_alternatives_for_boycott_product(product_type=None):
     
     try:
         # Get all alternatives for this boycott product
-        alternatives = AlternativeProducts.objects.all()
-    
+        alternatives = AlternativeProducts.objects.filter(countries__name=country)    
         # Filter by product type with optional fuzzy matching
         result = []
         for alt in alternatives:
@@ -165,6 +172,7 @@ def get_alternatives_for_boycott_product(product_type=None):
                     'product_type': alt_product_type,
                     'company_website': alt.company_name.website,
                     'image_url': alt.image_url,
+                    'countries': [country.name for country in alt.countries.all()],
                     'is_exact_match': (alt_product_type.lower() == product_type.lower())
                 })
                 if len(result) ==6 : break
@@ -175,16 +183,16 @@ def get_alternatives_for_boycott_product(product_type=None):
         logger.error(f"Error getting alternatives: {str(e)}", exc_info=True)
         return []
 
-def is_alternative_product_sync(company_name: str, product_type: str):
+def is_alternative_product_sync(company_name: str, product_type: str, country=None):
     """Synchronous version - Check if a product from a company is in the alternative products list"""
-    from analyzer.models import AlternativeProducts
+    from analyzer.models import AlternativeProducts, Country
     from analyzer.utils.fuzzy_match import calculate_similarity, is_similar_product_type
     
     try:
         company_name = company_name.strip()
         product_type = product_type.strip()
         
-        logger.info(f"[SYNC] Checking alternative product for: '{company_name}' - '{product_type}'")
+        logger.info(f"[SYNC] Checking alternative product for: '{company_name}' - '{product_type}' in '{country}'")
         
         # Get count of alternative products in database
         alt_count = AlternativeProducts.objects.count()
@@ -195,19 +203,27 @@ def is_alternative_product_sync(company_name: str, product_type: str):
             logger.info("[SYNC] No alternative products in database, returning False")
             return False
         
-        # First try exact match (case-insensitive)
-        exact_match = AlternativeProducts.objects.filter(
-            company_name__company_name__iexact=company_name,
-            product_type__product_type__iexact=product_type
-        ).first()
+        # First try exact match with country filter
+        query_filter = {
+            'company_name__company_name__iexact': company_name,
+            'product_type__product_type__iexact': product_type,
+        }
+        if country:
+            query_filter['countries__name__iexact'] = country
+            
+        exact_match = AlternativeProducts.objects.filter(**query_filter).first()
         
         if exact_match:
             logger.info(f"[SYNC] Found exact alternative match: {exact_match.company_name.company_name} - {exact_match.product_type.product_type}")
             return True
             
         # Try case-insensitive match for company with fuzzy product type match
+        company_filter = {'company_name__company_name__iexact': company_name}
+        if country:
+            company_filter['countries__name__iexact'] = country
+            
         similar_products = AlternativeProducts.objects.filter(
-            company_name__company_name__iexact=company_name
+            **company_filter
         ).select_related('product_type')
         
         for product in similar_products:
@@ -236,6 +252,8 @@ def is_alternative_product_sync(company_name: str, product_type: str):
                 if is_similar_product_type(product_type, alt_product.product_type.product_type):
                     logger.info(f"[SYNC] Found fuzzy alternative match: {alt_product.company_name.company_name} - {alt_product.product_type.product_type} "
                               f"(company score: {company_similarity:.2f}, product types: '{product_type}' ~ '{alt_product.product_type.product_type}')")
+                    country_obj, created = Country.objects.get_or_create(name=country)
+                    alt_product.countries.add(country_obj)
                     found_match = True
                     break
         
@@ -250,9 +268,9 @@ def is_alternative_product_sync(company_name: str, product_type: str):
         return False
 
 @database_sync_to_async
-def is_alternative_product(company_name: str, product_type: str):
+def is_alternative_product(company_name: str, product_type: str, country=None):
     """Async wrapper for is_alternative_product_sync"""
-    logger.info(f"[ASYNC] is_alternative_product called with: '{company_name}' - '{product_type}'")
-    result = is_alternative_product_sync(company_name, product_type)
+    logger.info(f"[ASYNC] is_alternative_product called with: '{company_name}' - '{product_type}' in '{country}'")
+    result = is_alternative_product_sync(company_name, product_type, country)
     logger.info(f"[ASYNC] is_alternative_product returning: {result}")
     return result

@@ -83,11 +83,24 @@ class AlternativeCompanies(models.Model):
         return self.company_name
 
 
+class Country(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    code = models.CharField(max_length=3, null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Country'
+        verbose_name_plural = 'Countries'
+
+    def __str__(self):
+        return self.name
+
+
 class AlternativeProducts(models.Model):
     product_name = models.CharField(max_length=255)
     product_type = models.ForeignKey(ProductType, on_delete=models.CASCADE, related_name='alternatives')
     company_name = models.ForeignKey(AlternativeCompanies, on_delete=models.CASCADE, related_name='products')
     image_url = models.URLField(null=True, blank=True)
+    countries = models.ManyToManyField(Country, blank=True, related_name='alternative_products')
     alternative_to = models.ForeignKey(BoycottProducts, on_delete=models.CASCADE, related_name='alternatives', null=True, blank=True)
 
     class Meta:
