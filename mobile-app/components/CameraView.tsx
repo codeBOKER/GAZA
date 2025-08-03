@@ -17,7 +17,7 @@ const CameraView = forwardRef<CameraViewRef, CameraViewProps>(({ style }, ref) =
   useImperativeHandle(ref, () => ({
     takePictureAsync: async () => {
       if (cameraRef.current) {
-        return await cameraRef.current.takePictureAsync();
+        return await cameraRef.current.takePictureAsync({ base64: true, quality: 0.5, skipProcessing: true});
       }
       return null;
     },

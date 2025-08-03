@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, TouchableOpacity, Alert, Text, Animated, PanResponder, Dimensions, Image, ScrollView } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, Alert, Text, Animated, PanResponder, Dimensions, Image, ScrollView, ActivityIndicator } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import CameraView, { CameraViewRef } from '@/components/CameraView';
@@ -22,6 +22,7 @@ export default function CameraScreen() {
   const [productType, setProductType] = useState<string | null>(null);
   const [alternativeItems, setAlternativeItems] = useState<any[]>([]);
   const [country, setCountry] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     const fetchCountry = async () => {
@@ -127,25 +128,38 @@ export default function CameraScreen() {
   
   const takePicture = async () => {
     if (cameraRef.current) {
-      const photo = await cameraRef.current.takePictureAsync();
-      if (photo?.uri) {
-        const base64 = await FileSystem.readAsStringAsync(photo.uri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        const base64Image = `data:image/jpeg;base64,${base64}`;
-        setCapturedImage(base64Image);
+      try {
+        setIsProcessing(true); 
+        const photo = await cameraRef.current.takePictureAsync();
+        if (photo?.uri) {
+          setCapturedImage(photo.uri);
+        }
+      } catch (error) {
+        console.error('Camera error:', error);
+        Alert.alert('Camera Error', 'Failed to capture image. Please try again.');
+      } finally {
+        setIsProcessing(false); 
       }
     }
   };
 
 
   
-  const confirmSend = async (base64Image: string) => {
+  const confirmSend = async () => {
+    if (!capturedImage) return;
+    
+    // Convert to base64 only when sending
+    const base64 = await FileSystem.readAsStringAsync(capturedImage, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    const base64Image = `data:image/jpeg;base64,${base64}`;
+    
     setcompanyName("Analyzing...");
     setProductType("");
     setCause("...");
     setAlternativeItems([]);
-    setIsBoycottAlert(false)
+    setIsBoycottAlert(false);
+    setCapturedImage(null);
 
     const ws = new WebSocket(WS_URL);
     ws.onopen = () => {
@@ -154,9 +168,8 @@ export default function CameraScreen() {
         country: country,
       }));
     };
-    setCapturedImage(null);    
+    
     ws.onmessage = (event) => {
-      const response = JSON.parse(event.data);
       const data = JSON.parse(event.data);
       if (data.type === "company") {
         setcompanyName(data.value);
@@ -175,10 +188,7 @@ export default function CameraScreen() {
       Alert.alert('Error', 'Failed to analyze image');
       console.error('WebSocket error:', error);
     };
-    ws.onclose = () => {
-      // Handle WebSocket close
-    };
-};
+  };
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -188,11 +198,8 @@ export default function CameraScreen() {
     });
 
     if (!result.canceled) {
-      const base64 = await FileSystem.readAsStringAsync(result.assets[0].uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-      const base64Image = `data:image/jpeg;base64,${base64}`;
-      setCapturedImage(base64Image);
+      // Store URI in RAM for preview
+      setCapturedImage(result.assets[0].uri);
     }
   };
   
@@ -250,14 +257,22 @@ export default function CameraScreen() {
           <View style={[styles.corner, styles.bottomLeft]} />
           <View style={[styles.corner, styles.bottomRight]} />
         </View>
+        {isProcessing? (
+          <View style={styles.processingOverlay}>
+            <ActivityIndicator size="large" color="#ffffff" />
+            <Text style={styles.processingText}>Processing image...</Text>
+          </View>
+        ): 
         <View style={styles.instructionContainer}>
           <Text style={styles.instructionText}>
             {capturedImage ? 'Confirm to send this image' : 'Tap the button below to capture'}
           </Text>
         </View>
+        }
+        
         <TouchableOpacity 
           style={capturedImage ? styles.sendButton : styles.captureButton} 
-          onPress={capturedImage ? () => confirmSend(capturedImage) : takePicture}
+          onPress={capturedImage ? confirmSend : takePicture}
         >
           {capturedImage ? (
             <Text style={styles.sendIcon}>➤</Text>
@@ -680,5 +695,30 @@ const styles = StyleSheet.create({
   strikethroughText: {
     textDecorationLine: 'line-through',
     textDecorationStyle: 'solid',
+  },
+  loadingView: {
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  processingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+  },
+  processingText: {
+    marginTop: 10,
+    color: '#fff',
+    fontSize: 16,
   },
 });
