@@ -1,0 +1,30 @@
+# ملفات وقواعد بيانات لا تحتاجها في النشر
+db.sqlite3
+
+# بيئة بايثون الافتراضية
+venv/
+.venv/
+
+# ملفات التخزين المؤقت من بايثون
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+.env
+
+*.log
+
+media/
+image_analyzer/
+analyzer/
+
+.git/
+.gitignore
+
+
+.DS_Store
+*.zip
+
+# frontend
+/mobile-app
