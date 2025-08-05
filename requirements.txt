@@ -8,3 +8,4 @@ groq==0.30.0
 huggingface-hub==0.33.4
 python-dotenv==1.1.0
 requests
+dj-database-url==3.0.1
