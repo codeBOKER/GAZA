@@ -8,7 +8,7 @@ import { useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 
-const WS_URL = process.env.EXPO_PUBLIC_WS_URL || 'ws://127.0.0.1:8000/ws/analyze/';
+const WS_URL = process.env.EXPO_PUBLIC_WS_URL || 'wss://gaza-g4rl.onrender.com/ws/analyze/';
 export default function CameraScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraViewRef>(null);
