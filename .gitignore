@@ -95,3 +95,6 @@ yarn-error.*
 *.tsbuildinfo
 
 app-example
+
+# static files
+/staticfiles

@@ -91,11 +91,15 @@ CHANNEL_LAYERS = {
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 import dj_database_url
 
+USE_POSTGRES_DB = os.getenv('USE_POSTGRES_DB', 'False').lower() == 'true'
 DATABASES = {
     'default': dj_database_url.config(
         default=os.environ.get('DATABASE_URL'),
         conn_max_age=600,
-    )
+    ) if USE_POSTGRES_DB else {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
 }
 
 
