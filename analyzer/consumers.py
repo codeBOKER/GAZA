@@ -80,6 +80,8 @@ class AnalyzeConsumer(AsyncWebsocketConsumer):
                 await self.send(text_data=json.dumps({"type": "product_type", "value":""}))
                 await self.send(text_data=json.dumps({"type": "cause", "value": ""}))
                 await self.send(text_data=json.dumps({"type": "alternative", "value": ""}))
+                await self.send(text_data=json.dumps({"type": "done"}))
+                await self.close()
                 return
             else:
                 company_coroutine = check_company_and_get_cause(company_name, company_parent_name)
@@ -100,6 +102,8 @@ class AnalyzeConsumer(AsyncWebsocketConsumer):
                         "type": "alternative", 
                         "value": alternatives
                     }))
+                    await self.send(text_data=json.dumps({"type": "done"}))
+                    await self.close()
                 else:
                     await self.send(text_data=json.dumps({"type": "boycott", "value": False}))
                     # Check if it's an alternative company
@@ -114,26 +118,31 @@ class AnalyzeConsumer(AsyncWebsocketConsumer):
                         logger.info(f"Alternative company found: {company_name}")
                         await self.send(text_data=json.dumps({"type": "boycott", "value": False}))
                         await self.send(text_data=json.dumps({"type": "cause", "value": cause}))
+                        await self.send(text_data=json.dumps({"type": "done"}))
+                        await self.close()
                     else:
                         # Save as new alternative product for future reference
                         await save_product_as_alternative(company_name, product_type, resized_base64, country)
                         cause = "Company not in boycott list - Consider as potential alternative"
                         logger.info(f"New company saved as alternative: {company_name}")    
                         await self.send(text_data=json.dumps({"type": "cause", "value": cause}))
+                        await self.send(text_data=json.dumps({"type": "done"}))
+                        await self.close()
                 
-                
-
-
         except asyncio.TimeoutError:
             await self.send(text_data=json.dumps({"type": "error", "value": "Request timed out after 25 seconds"}))
             await self.send(text_data=json.dumps({"type": "company", "value": "Timed out after 25 seconds"}))
             await self.send(text_data=json.dumps({"type": "boycott", "value": False}))
             await self.send(text_data=json.dumps({"type": "product_type", "value":""}))
             await self.send(text_data=json.dumps({"type": "cause", "value": ""}))
+            await self.send(text_data=json.dumps({"type": "done"}))
+            await self.close()
         except Exception as e:
             await self.send(text_data=json.dumps({"type": "error", "value": str(e)}))
             await self.send(text_data=json.dumps({"type": "company", "value": "Error: Try again"}))
             await self.send(text_data=json.dumps({"type": "boycott", "value": False}))
             await self.send(text_data=json.dumps({"type": "product_type", "value":""}))
             await self.send(text_data=json.dumps({"type": "cause", "value": ""}))
+            await self.send(text_data=json.dumps({"type": "done"}))
+            await self.close()
             

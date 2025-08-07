@@ -182,6 +182,10 @@ export default function CameraScreen() {
       } else if (data.type === "alternative") {
         setAlternativeItems(data.value);
       }
+
+      if (data.type === "done") {
+         ws.close();
+      }
     };
 
     ws.onerror = (error) => {
