@@ -47,7 +47,8 @@
     "react-native-web": "~0.20.0",
     "react-native-webview": "13.13.5",
     "expo-media-library": "~17.1.7",
-    "expo-updates": "~0.28.17"
+    "expo-updates": "~0.28.17",
+    "expo-image-manipulator": "~13.1.7"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

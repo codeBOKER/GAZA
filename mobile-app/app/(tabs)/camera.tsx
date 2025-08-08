@@ -7,6 +7,7 @@ import * as FileSystem from 'expo-file-system';
 import { useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 const WS_URL = process.env.EXPO_PUBLIC_WS_URL || 'wss://gaza-g4rl.onrender.com/ws/analyze/';
 export default function CameraScreen() {
@@ -129,21 +130,27 @@ export default function CameraScreen() {
   const takePicture = async () => {
     if (cameraRef.current) {
       try {
-        setIsProcessing(true); 
+        setIsProcessing(true);
         const photo = await cameraRef.current.takePictureAsync();
-        if (photo?.uri) {
-          setCapturedImage(photo.uri);
+        if (photo && photo.uri) {
+          const compressed = await ImageManipulator.manipulateAsync(
+            photo.uri,
+            [{ resize: { width: 800 } }],
+            { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG }
+          );
+
+          setCapturedImage(compressed.uri);
+        } else {
+          Alert.alert('Error', 'No photo was taken');
         }
       } catch (error) {
         console.error('Camera error:', error);
         Alert.alert('Camera Error', 'Failed to capture image. Please try again.');
       } finally {
-        setIsProcessing(false); 
+        setIsProcessing(false);
       }
     }
   };
-
-
   
   const confirmSend = async () => {
     if (!capturedImage) return;
