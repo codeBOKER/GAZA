@@ -38,22 +38,31 @@ async def genrate_text_cause(text):
 
 async def analyze_img(image_url):
     alternativ_messsage= """
-        You are a product identification AI. Your task is to analyze the provided image and accurately identify the brand/company name, the parent company name, and the product type/category (not the specific product name or flavor).
+        You are a product identification AI. Your task is to analyze the provided image and determine:
+
+        Whether the identified company/brand supports Israel (True if it supports, False if it does not).
+
+        The brand/company name.
+
+        The parent company name.
+
+        The product type/category (not the specific product name or flavor).
+
+        The cause of boycott, stated in a critical and direct manner, without any justification, apology, or positive framing for the company.
+
         Respond only in this exact format:
-        [Brand Name, Parent Company Name, Product Type]
-        
-        if no Parent Company put: $
+        [True/False, Brand Name, Parent Company Name, Product Type, Cause]
+
+        If no Parent Company, put: $
 
         Correct Examples:
-        [7 Up, PepsiCo, Soft Drink]
-        [Miranda, PepsiCo, Soft Drink]
-        [Apple, $, smartphone]
-        [Cadbury, Mondelez,  Dairy Milk chocolate]
+        [True, 7 Up, PepsiCo, Soft Drink, Funds Israeli military through partnerships and donations]
+        [True, Miranda, PepsiCo, Soft Drink, Profits used to support Israeli settlement expansion]
+        [False, Apple, $, Smartphone, No evidence of direct support for Israel]
+        [True, Cadbury, Mondelez, Dairy Milk Chocolate, Parent company invests in Israeli companies aiding occupation]
 
         Do NOT return specific product names or flavors:
-        [Apple, $, iPhone 14 Pro] (Incorrect – too specific)
-
-        Do NOT omit required parts or change the format.
+        [False, Apple, $, iPhone 14 Pro, No evidence of direct support for Israel] (Incorrect – too specific)
 
         If no product is clearly visible in the image, respond exactly with: #
 
