@@ -36,7 +36,7 @@ async def genrate_text_cause(text):
     ]
     return await analyze(message)
 
-async def analyze_img(image_url):
+async def analyze_img(image_url, language="English"):
     alternativ_messsage= """
         You are a product identification AI. Your task is to analyze the provided image and determine:
 
@@ -67,11 +67,13 @@ async def analyze_img(image_url):
         If no product is clearly visible in the image, respond exactly with: #
 
         Be concise and consistent. Do not include any extra text, punctuation, or formatting other than the specified structure.
+
+        The language of the answer should be in 
         """
     try:
         from analyzer.models import SystemMessage
         system_msg = await database_sync_to_async(lambda: SystemMessage.objects.filter(name="image_analysis", is_active=True).first())() 
-        system_content = system_msg.message if system_msg else alternativ_messsage
+        system_content = system_msg.message+" "+language if system_msg else alternativ_messsage+" "+language
     except Exception as e:
         logger.error(f"Error fetching image analysis system message: {str(e)}")
         system_content = alternativ_messsage

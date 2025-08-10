@@ -8,11 +8,15 @@ import { useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import * as ImageManipulator from 'expo-image-manipulator';
+import { useLanguage } from '@/context/LanguageContext';
+import { useRouter } from 'expo-router';
 
 const WS_URL = process.env.EXPO_PUBLIC_WS_URL || 'wss://gaza-g4rl.onrender.com/ws/analyze/';
 export default function CameraScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraViewRef>(null);
+  const { language } = useLanguage();
+  const router = useRouter();
 
   const [isContainerExpanded, setIsContainerExpanded] = useState(true); 
   const [screenDimensions, setScreenDimensions] = useState(Dimensions.get('window'));
@@ -45,6 +49,13 @@ export default function CameraScreen() {
     });
     return () => subscription?.remove();
   }, []);
+
+  // Force user to select a language on first launch
+  useEffect(() => {
+    if (!language) {
+      router.replace('/language-select' as any);
+    }
+  }, [language, router]);
   
   // Drag functionality for white container
   const screenHeight = screenDimensions.height;
@@ -173,6 +184,7 @@ export default function CameraScreen() {
       ws.send(JSON.stringify({
         image_data: base64Image,
         country: country,
+        language: language,
       }));
     };
     
@@ -298,7 +310,7 @@ export default function CameraScreen() {
         {/* Dynamic color circle on top left */}
         <View style={[
           styles.alertCircle, 
-          { backgroundColor: isBoycottAlert ? '#F44336' : '#4CAF50' }
+          { backgroundColor: isBoycottAlert ? '#e81a13' : '#2E7D32' }
         ]} />
         
         {/* Draggable header area */}
@@ -310,7 +322,7 @@ export default function CameraScreen() {
           {/* Dynamic color text container between company and home indicator */}
           <View style={[
             styles.alertTextContainer,
-            { backgroundColor: isBoycottAlert ? '#FFEBEE' : '#E8F5E8' }
+            { backgroundColor: isBoycottAlert ? '#432818' : '#3E3E3E', borderRadius: 8 }
           ]}>
             <Text style={[
               styles.alertText,
@@ -427,7 +439,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'white',
+    backgroundColor: '#2f2a29',
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     paddingTop: 0,
@@ -490,8 +502,8 @@ const styles = StyleSheet.create({
   closeIcon: {
     fontSize: 24,
     fontWeight: 'bold',
-    backgroundColor:'rgba(0, 0, 0, 0.16)',
-    color: '#333',
+    backgroundColor:'rgba(255, 255, 255, 0.16)',
+    color: 'rgba(255, 255, 255, 0.66)',
     textAlign: 'center',
     width: 28,
     height: 28,
@@ -532,14 +544,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   instructionText: {
-    color: 'white',
+    color: '#ffffff',
     fontSize: 12,
     textAlign: 'center',
     fontWeight: '500',
   },
   instructionContainer: {
     top: '5%',
-    backgroundColor: 'rgba(117, 117, 117, 0.2)',
+    backgroundColor: 'rgba(232, 26, 19, 0.18)',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
@@ -547,10 +559,10 @@ const styles = StyleSheet.create({
   homeIndicator: {
     width: 134,
     height: 5,
-    backgroundColor: '#000',
+    backgroundColor: '#e0d7d6',
     borderRadius: 3,
     alignSelf: 'center',
-    opacity: 0.3,
+    opacity: 0.25,
   },
   alternativeImage: {
     width: '100%',
@@ -577,23 +589,23 @@ const styles = StyleSheet.create({
   infoLabel: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#333',
+    color: '#ffffff',
     minWidth: 90,
   },
   infoValue: {
     fontSize: 18,
-    color: '#666',
+    color: '#e0d7d6',
     flex: 1,
     textAlign: 'center',
   },
   infoValueSmall: {
     fontSize: 14,
-    color: '#666',
+    color: '#c9bdbb',
     flex: 1,
   },
   separatorLine: {
     height: 1,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#4a4443',
     marginVertical: 10,
     marginHorizontal: 0,
   },
@@ -604,7 +616,7 @@ const styles = StyleSheet.create({
   alternativesTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#333',
+    color: '#ffffff',
     marginBottom: 15,
   },
   alternativesScrollView: {
@@ -630,28 +642,28 @@ const styles = StyleSheet.create({
   alternativeImagePlaceholder: {
     width: 150,
     height: 170,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: '#3a3433',
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#4a4443',
   },
   placeholderText: {
     fontSize: 10,
-    color: '#999',
+    color: '#c9bdbb',
     fontWeight: '500',
   },
   alternativeCompanyName: {
     fontSize: 12,
-    color: '#666',
+    color: '#e0d7d6',
     textAlign: 'center',
     fontWeight: '500',
   },
   alternativeProductName: {
     fontSize: 10,
-    color: '#999',
+    color: '#c9bdbb',
     textAlign: 'center',
     fontWeight: '400',
     marginTop: 2,
@@ -694,7 +706,6 @@ const styles = StyleSheet.create({
   alertTextContainer: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 12,
     alignSelf: 'center',
     marginTop: 20,
   },

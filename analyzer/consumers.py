@@ -48,6 +48,10 @@ class AnalyzeConsumer(AsyncWebsocketConsumer):
         if not country:
             logger.info(f"User country: NO COUNTRY..!")
 
+        language = data.get('language', "English")
+        if not language:
+            logger.info(f"User language: NO LANGUAGE..!")
+
         # Extract base64 data from data URL
         if image_data.startswith('data:image/'):
             base64_data = image_data.split(',')[1]
@@ -65,7 +69,7 @@ class AnalyzeConsumer(AsyncWebsocketConsumer):
         image_url = f"data:image/{ext};base64,{resized_base64}"
 
         try:
-            response_text = await asyncio.wait_for(analyze_img(image_url), timeout=25.0)
+            response_text = await asyncio.wait_for(analyze_img(image_url, language), timeout=25.0)
             logger.info(f"Image analysis response: {response_text}")
             
             boycott_status, company_name, company_parent_name, product_type, cause = parse_response(response_text)
