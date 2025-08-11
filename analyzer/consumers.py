@@ -48,9 +48,7 @@ class AnalyzeConsumer(AsyncWebsocketConsumer):
         if not country:
             logger.info(f"User country: NO COUNTRY..!")
 
-        language = data.get('language', "English")
-        if not language:
-            logger.info(f"User language: NO LANGUAGE..!")
+        language = data.get('language', 'English')
 
         # Extract base64 data from data URL
         if image_data.startswith('data:image/'):

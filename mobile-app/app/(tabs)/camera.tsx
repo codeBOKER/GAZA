@@ -10,6 +10,7 @@ import * as Location from 'expo-location';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useLanguage } from '@/context/LanguageContext';
 import { useRouter } from 'expo-router';
+import { t } from '@/i18n/translations';
 
 const WS_URL = process.env.EXPO_PUBLIC_WS_URL || 'wss://gaza-g4rl.onrender.com/ws/analyze/';
 export default function CameraScreen() {
@@ -17,6 +18,20 @@ export default function CameraScreen() {
   const cameraRef = useRef<CameraViewRef>(null);
   const { language } = useLanguage();
   const router = useRouter();
+  const isRTL = language === 'ar' || language === 'ur';
+
+  // Map language codes to human-readable language names
+  const languageNames: Record<string, string> = {
+    en: 'English',
+    ar: 'Arabic',
+    fr: 'French',
+    es: 'Spanish',
+    de: 'German',
+    tr: 'Turkish',
+    ur: 'Urdu',
+  };
+
+  const getLanguageName = (code: string | null) => (code ? languageNames[code] || code : null);
 
   const [isContainerExpanded, setIsContainerExpanded] = useState(true); 
   const [screenDimensions, setScreenDimensions] = useState(Dimensions.get('window'));
@@ -152,11 +167,11 @@ export default function CameraScreen() {
 
           setCapturedImage(compressed.uri);
         } else {
-          Alert.alert('Error', 'No photo was taken');
+          Alert.alert(t(language, 'error'), 'No photo was taken');
         }
       } catch (error) {
         console.error('Camera error:', error);
-        Alert.alert('Camera Error', 'Failed to capture image. Please try again.');
+        Alert.alert(t(language, 'cameraError'), t(language, 'cameraErrorMsg'));
       } finally {
         setIsProcessing(false);
       }
@@ -172,19 +187,19 @@ export default function CameraScreen() {
     });
     const base64Image = `data:image/jpeg;base64,${base64}`;
     
-    setcompanyName("Analyzing...");
+    setcompanyName(t(language, 'analyzing'));
     setProductType("");
     setCause("...");
     setAlternativeItems([]);
     setIsBoycottAlert(false);
     setCapturedImage(null);
-
+    const langToSend = getLanguageName(language);
     const ws = new WebSocket(WS_URL);
     ws.onopen = () => {
       ws.send(JSON.stringify({
         image_data: base64Image,
         country: country,
-        language: language,
+        language: langToSend,
       }));
     };
     
@@ -208,7 +223,7 @@ export default function CameraScreen() {
     };
 
     ws.onerror = (error) => {
-      Alert.alert('Error', 'Failed to analyze image');
+      Alert.alert(t(language, 'error'), t(language, 'failedAnalyze'));
       console.error('WebSocket error:', error);
     };
   };
@@ -249,9 +264,9 @@ export default function CameraScreen() {
   if (!permission?.granted) {
     return (
       <View style={styles.container}>
-        <Text>No access to camera</Text>
+        <Text>{t(language, 'noCamera')}</Text>
         <TouchableOpacity onPress={requestPermission}>
-          <Text>Grant Camera Permission</Text>
+          <Text>{t(language, 'grantCamera')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -283,12 +298,12 @@ export default function CameraScreen() {
         {isProcessing? (
           <View style={styles.processingOverlay}>
             <ActivityIndicator size="large" color="#ffffff" />
-            <Text style={styles.processingText}>Processing image...</Text>
+            <Text style={styles.processingText}>{t(language, 'processing')}</Text>
           </View>
         ): 
         <View style={styles.instructionContainer}>
           <Text style={styles.instructionText}>
-            {capturedImage ? 'Confirm to send this image' : 'Tap the button below to capture'}
+            {capturedImage ? t(language, 'confirmSend') : t(language, 'tapToCapture')}
           </Text>
         </View>
         }
@@ -328,7 +343,7 @@ export default function CameraScreen() {
               styles.alertText,
               { color: isBoycottAlert ? '#C62828' : '#2E7D32' }
             ]}>
-              {isBoycottAlert ? 'Boycott Alert' : 'Safe Alternative'}
+              {isBoycottAlert ? t(language, 'boycottAlert') : t(language, 'safeAlternative')}
             </Text>
           </View>
         </View>
@@ -351,23 +366,24 @@ export default function CameraScreen() {
         {/* Content inside white container */}
         <View style={styles.contentContainer}>
           {/* First row - Company */}
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Company: </Text>
+          <View style={[styles.infoRow, isRTL && { flexDirection: 'row-reverse' }]}>
+            <Text style={[styles.infoLabel, isRTL && { textAlign: 'right' }]}>{t(language, 'company')} </Text>
             <Text style={[
               styles.infoValue,
-              isBoycottAlert && styles.strikethroughText
+              isBoycottAlert && styles.strikethroughText,
+              isRTL && { textAlign: 'left' }
             ]}>{companyName}
             </Text>
-            <Text style={styles.infoValueSmall}> {productType}</Text>
+            <Text style={[styles.infoValueSmall, isRTL && { textAlign: 'left' }]}> {productType}</Text>
           </View>
           
           {/* Separator line */}
           <View style={styles.separatorLine} />
           
           {/* Second row - Why */}
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Why: </Text>
-            <Text style={styles.infoValueSmall}>
+          <View style={[styles.infoRow, isRTL && { flexDirection: 'row-reverse' }]}>
+            <Text style={[styles.infoLabel, isRTL && { textAlign: 'right' }]}>{t(language, 'why')} </Text>
+            <Text style={[styles.infoValueSmall, isRTL && { textAlign: 'left' }]}>
               {cause}
             </Text>
             
@@ -378,12 +394,12 @@ export default function CameraScreen() {
           
           {/* Alternatives row */}
           <View style={styles.alternativesSection}>
-            <Text style={styles.alternativesTitle}>Alternatives:</Text>
+            <Text style={[styles.alternativesTitle, isRTL && { textAlign: 'right' }]}>{t(language, 'alternatives')}</Text>
             <ScrollView 
               style={styles.alternativesScrollView}
               showsVerticalScrollIndicator={false}
             >
-              <View style={styles.alternativesGrid}>
+              <View style={[styles.alternativesGrid, isRTL && { flexDirection: 'row-reverse' }]}>
                 { isBoycottAlert ? alternativeItems.map((alt, index) => (
                   <View key={index} style={styles.alternativeRow}>
                     <View style={styles.alternativeItem}>
@@ -398,7 +414,7 @@ export default function CameraScreen() {
                       <Text style={styles.alternativeProductName}>{alt.product_name === alt.company_name ? alt.product_type : alt.product_name}</Text>
                     </View>
                   </View>
-                )):<Text style={styles.infoValue}> Alternative products will appeare here .. </Text> }
+                )):<Text style={styles.infoValue}> {t(language, 'altPlaceholder')} </Text> }
               </View>
             </ScrollView>
               
