@@ -159,13 +159,38 @@ export default function CameraScreen() {
         setIsProcessing(true);
         const photo = await cameraRef.current.takePictureAsync();
         if (photo && photo.uri) {
-          const compressed = await ImageManipulator.manipulateAsync(
+          // Enforce a centered 3:4 crop on the captured image, then resize/compress
+          const targetRatio = 3 / 4; // width / height
+          let actions: ImageManipulator.Action[] = [];
+
+          const srcWidth = (photo as any).width as number | undefined;
+          const srcHeight = (photo as any).height as number | undefined;
+
+          if (srcWidth && srcHeight) {
+            const currentRatio = srcWidth / srcHeight;
+            if (currentRatio > targetRatio) {
+              // Too wide: crop width
+              const newWidth = Math.round(srcHeight * targetRatio);
+              const originX = Math.round((srcWidth - newWidth) / 2);
+              actions.push({ crop: { originX, originY: 0, width: newWidth, height: srcHeight } });
+            } else if (currentRatio < targetRatio) {
+              // Too tall: crop height
+              const newHeight = Math.round(srcWidth / targetRatio);
+              const originY = Math.round((srcHeight - newHeight) / 2);
+              actions.push({ crop: { originX: 0, originY, width: srcWidth, height: newHeight } });
+            }
+          }
+
+          // After crop, downscale to a reasonable width
+          actions.push({ resize: { width: 800 } });
+
+          const processed = await ImageManipulator.manipulateAsync(
             photo.uri,
-            [{ resize: { width: 800 } }],
+            actions,
             { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG }
           );
 
-          setCapturedImage(compressed.uri);
+          setCapturedImage(processed.uri);
         } else {
           Alert.alert(t(language, 'error'), 'No photo was taken');
         }
@@ -232,7 +257,8 @@ export default function CameraScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
-      quality: 1,
+      quality: 0.6,
+      aspect: [3, 4],
     });
 
     if (!result.canceled) {
@@ -463,7 +489,7 @@ const styles = StyleSheet.create({
   },
   scannerFrame: {
     width: '80%',
-    height: '180%',
+    aspectRatio: 3 / 4,
     position: 'relative',
   },
   corner: {
@@ -566,7 +592,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   instructionContainer: {
-    top: '5%',
     backgroundColor: 'rgba(232, 26, 19, 0.18)',
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -582,7 +607,8 @@ const styles = StyleSheet.create({
   },
   alternativeImage: {
     width: '100%',
-    height: '100%',
+    aspectRatio: 3 / 4,
+    resizeMode: 'cover',
     borderRadius: 12,
   },
   dragArea: {
@@ -656,8 +682,8 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   alternativeImagePlaceholder: {
-    width: 150,
-    height: 170,
+    width: '100%',
+    aspectRatio: 3 / 4,
     backgroundColor: '#3a3433',
     borderRadius: 12,
     justifyContent: 'center',

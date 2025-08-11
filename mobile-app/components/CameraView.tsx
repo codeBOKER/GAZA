@@ -7,7 +7,7 @@ interface CameraViewProps {
 }
 
 export interface CameraViewRef {
-  takePictureAsync: () => Promise<{ uri: string } | null>;
+  takePictureAsync: () => Promise<{ uri: string; width?: number; height?: number } | null>;
 }
 
 const CameraView = forwardRef<CameraViewRef, CameraViewProps>(({ style }, ref) => {
@@ -17,7 +17,13 @@ const CameraView = forwardRef<CameraViewRef, CameraViewProps>(({ style }, ref) =
   useImperativeHandle(ref, () => ({
     takePictureAsync: async () => {
       if (cameraRef.current) {
-        return await cameraRef.current.takePictureAsync({ base64: true, quality: 0.5, skipProcessing: true});
+        // Return width/height as well for downstream cropping
+        const photo: any = await cameraRef.current.takePictureAsync({
+          base64: true,
+          quality: 0.5,
+          skipProcessing: true,
+        });
+        return { uri: photo?.uri, width: photo?.width, height: photo?.height };
       }
       return null;
     },
