@@ -18,6 +18,7 @@ export const translations: Record<string, Record<string, string>> = {
     cameraErrorMsg: 'Failed to capture image. Please try again.',
     error: 'Error',
     failedAnalyze: 'Failed to analyze image',
+    firstRequestMayBeSlow: 'First analysis may take over 10s; please wait.',
   },
   ar: {
     processing: 'جاري معالجة الصورة...',
@@ -36,6 +37,7 @@ export const translations: Record<string, Record<string, string>> = {
     cameraErrorMsg: 'فشل التقاط الصورة. حاول مرة أخرى.',
     error: 'خطأ',
     failedAnalyze: 'فشل تحليل الصورة',
+    firstRequestMayBeSlow: 'قد تستغرق أول عملية تحليل أكثر من 10 ثوانٍ. الرجاء الانتظار.',
   },
   fr: {
     processing: "Traitement de l'image...",
@@ -54,6 +56,7 @@ export const translations: Record<string, Record<string, string>> = {
     cameraErrorMsg: "Échec de la capture de l'image. Veuillez réessayer.",
     error: 'Erreur',
     failedAnalyze: "Échec de l'analyse de l'image",
+    firstRequestMayBeSlow: 'La première analyse peut durer plus de 10 s ; veuillez patienter.',
   },
   es: {
     processing: 'Procesando imagen...',
@@ -72,6 +75,7 @@ export const translations: Record<string, Record<string, string>> = {
     cameraErrorMsg: 'No se pudo capturar la imagen. Inténtalo de nuevo.',
     error: 'Error',
     failedAnalyze: 'No se pudo analizar la imagen',
+    firstRequestMayBeSlow: 'El primer análisis puede tardar más de 10 s; por favor espere.',
   },
   de: {
     processing: 'Bild wird verarbeitet...',
@@ -90,6 +94,7 @@ export const translations: Record<string, Record<string, string>> = {
     cameraErrorMsg: 'Bildaufnahme fehlgeschlagen. Bitte versuchen Sie es erneut.',
     error: 'Fehler',
     failedAnalyze: 'Bildanalyse fehlgeschlagen',
+    firstRequestMayBeSlow: 'Die erste Analyse kann über 10 Sekunden dauern; bitte warten.',
   },
   tr: {
     processing: 'Görüntü işleniyor...',
@@ -108,6 +113,7 @@ export const translations: Record<string, Record<string, string>> = {
     cameraErrorMsg: 'Görüntü yakalanamadı. Lütfen tekrar deneyin.',
     error: 'Hata',
     failedAnalyze: 'Görüntü analiz edilemedi',
+    firstRequestMayBeSlow: 'İlk analiz 10 saniyeden uzun sürebilir; lütfen bekleyin.',
   },
   ur: {
     processing: 'تصویر پر عمل ہو رہا ہے...',
@@ -126,6 +132,7 @@ export const translations: Record<string, Record<string, string>> = {
     cameraErrorMsg: 'تصویر کیپچر کرنے میں ناکامی۔ دوبارہ کوشش کریں۔',
     error: 'خرابی',
     failedAnalyze: 'تصویر کا تجزیہ ناکام',
+    firstRequestMayBeSlow: 'پہلا تجزیہ 10 سیکنڈ سے زیادہ لے سکتا ہے، براہِ کرم انتظار کریں۔',
   },
 };
 

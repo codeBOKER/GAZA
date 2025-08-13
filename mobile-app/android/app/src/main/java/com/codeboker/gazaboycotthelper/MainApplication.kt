@@ -1,4 +1,4 @@
-package com.codeboker.mobileapp
+package com.codeboker.gazaboycotthelper
 
 import android.app.Application
 import android.content.res.Configuration

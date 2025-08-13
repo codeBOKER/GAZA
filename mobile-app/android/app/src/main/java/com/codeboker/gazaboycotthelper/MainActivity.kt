@@ -1,4 +1,4 @@
-package com.codeboker.mobileapp
+package com.codeboker.gazaboycotthelper
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

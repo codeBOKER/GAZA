@@ -2,24 +2,29 @@
   "expo": {
     "name": "BOYCOTT",
     "slug": "mobile-app",
-    "version": "1.1 .0",
+    "version": "1.1.1",
     "orientation": "portrait",
-    "icon": "./assets/images/logo.png",
+    "icon": "./assets/images/icon.png",
     "scheme": "mobileapp",
     "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/images/adaptive-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#2f2a29"
+    },
     "ios": {
       "supportsTablet": true,
+      "buildNumber": "2",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Allow Gaza Boycott Helper to access your photos to select product images.",
         "NSPhotoLibraryAddUsageDescription": "Allow $(PRODUCT_NAME) to save photos"
       },
-      "runtimeVersion": {
-        "policy": "appVersion"
-      }
+      "runtimeVersion": "1.0.0",
+      "bundleIdentifier": "com.codeboker.gazaboycotthelper"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-logo.png",
+        "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#2f2a29"
       },
       "edgeToEdgeEnabled": true,
@@ -28,6 +33,7 @@
         "MEDIA_LIBRARY"
       ],
       "package": "com.codeboker.gazaboycotthelper",
+      "versionCode": 3,
       "runtimeVersion": "1.0.0"
     },
     "web": {

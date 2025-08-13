@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, TouchableOpacity, Alert, Text, Animated, PanResponder, Dimensions, Image, ScrollView, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, Alert, Text, Animated, PanResponder, Dimensions, Image, ScrollView, ActivityIndicator, Easing } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import CameraView, { CameraViewRef } from '@/components/CameraView';
@@ -43,6 +43,9 @@ export default function CameraScreen() {
   const [alternativeItems, setAlternativeItems] = useState<any[]>([]);
   const [country, setCountry] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showFirstHint, setShowFirstHint] = useState(false);
+  const firstRequestHintShown = useRef(false);
+  const hintAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const fetchCountry = async () => {
@@ -205,6 +208,28 @@ export default function CameraScreen() {
   
   const confirmSend = async () => {
     if (!capturedImage) return;
+    // Show a small one-time hint that first request may be slow (>10s)
+    if (!firstRequestHintShown.current) {
+      setShowFirstHint(true);
+      firstRequestHintShown.current = true;
+      // Animate: fade/slide in, delay, fade/slide out
+      hintAnim.setValue(0);
+      Animated.sequence([
+        Animated.timing(hintAnim, {
+          toValue: 1,
+          duration: 350,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.delay(2000),
+        Animated.timing(hintAnim, {
+          toValue: 0,
+          duration: 300,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start(() => setShowFirstHint(false));
+    }
     
     // Convert to base64 only when sending
     const base64 = await FileSystem.readAsStringAsync(capturedImage, {
@@ -287,13 +312,23 @@ export default function CameraScreen() {
     }
   };
 
+  // Show a dedicated permission prompt UI only when permission is NOT granted
   if (!permission?.granted) {
     return (
-      <View style={styles.container}>
-        <Text>{t(language, 'noCamera')}</Text>
-        <TouchableOpacity onPress={requestPermission}>
-          <Text>{t(language, 'grantCamera')}</Text>
-        </TouchableOpacity>
+      <View style={styles.permissionContainer}>
+        <View style={styles.permissionCard}>
+          <View style={styles.permissionAccent} />
+          <Text style={[styles.permissionTitle, isRTL && { writingDirection: 'rtl' }]}>
+            {t(language, 'noCamera')}
+          </Text>
+          <TouchableOpacity
+            style={styles.permissionButton}
+            onPress={requestPermission}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.permissionButtonText}>{t(language, 'grantCamera')}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -321,6 +356,40 @@ export default function CameraScreen() {
           <View style={[styles.corner, styles.bottomLeft]} />
           <View style={[styles.corner, styles.bottomRight]} />
         </View>
+        {showFirstHint && (
+          <Animated.View
+            style={[
+              styles.firstHintToast,
+              {
+                opacity: hintAnim,
+                transform: [
+                  {
+                    translateY: hintAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-10, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <View style={styles.firstHintContent}>
+              <Text style={styles.firstHintIcon} accessibilityElementsHidden>
+                ⓘ
+              </Text>
+              <Text
+                style={[
+                  styles.firstHintText,
+                  isRTL && { writingDirection: 'rtl', textAlign: 'right' },
+                ]}
+                allowFontScaling={false}
+                numberOfLines={2}
+              >
+                {t(language, 'firstRequestMayBeSlow')}
+              </Text>
+            </View>
+          </Animated.View>
+        )}
         {isProcessing? (
           <View style={styles.processingOverlay}>
             <ActivityIndicator size="large" color="#ffffff" />
@@ -597,6 +666,40 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 16,
   },
+  firstHintToast: {
+    position: 'absolute',
+    top: -60,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(20, 20, 20, 0.75)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+    maxWidth: '88%',
+  },
+  firstHintContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  firstHintIcon: {
+    color: '#9ad0ff',
+    fontSize: 13,
+    marginRight: 6,
+  },
+  firstHintText: {
+    color: '#ffffff',
+    fontSize: 12.5,
+    textAlign: 'center',
+    fontWeight: '500',
+    letterSpacing: 0,
+    flexShrink: 1,
+  },
   homeIndicator: {
     width: 134,
     height: 5,
@@ -604,6 +707,61 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     alignSelf: 'center',
     opacity: 0.25,
+  },
+  // Permission styles
+  permissionContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  permissionCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: 20,
+    paddingVertical: 28,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  permissionAccent: {
+    width: 42,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  permissionTitle: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 18,
+  },
+  permissionButton: {
+    backgroundColor: '#ffffff',
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    alignItems: 'center',
+    alignSelf: 'center',
+    minWidth: 180,
+    borderWidth: 1,
+    borderColor: 'rgba(232, 26, 19, 0.20)',
+    shadowColor: '#e81a13',
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  permissionButtonText: {
+    color: '#2f2a29',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   alternativeImage: {
     width: '100%',
