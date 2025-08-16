@@ -1,12 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, View, TouchableOpacity, Alert, Text, Animated, PanResponder, Dimensions, Image, ScrollView, ActivityIndicator, Easing } from 'react-native';
-import { ThemedView } from '@/components/ThemedView';
-import { ThemedText } from '@/components/ThemedText';
 import CameraView, { CameraViewRef } from '@/components/CameraView';
 import * as FileSystem from 'expo-file-system';
 import { useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
-import * as Location from 'expo-location';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useLanguage } from '@/context/LanguageContext';
 import { useRouter } from 'expo-router';
@@ -448,7 +445,11 @@ export default function CameraScreen() {
           onPress={handleButtonPress}
         >
           {isContainerExpanded ? (
-            <Text style={styles.closeIcon}>×</Text>
+            <Image 
+            source={require('@/assets/images/close.png')} 
+            style={styles.pickImageIcon}
+            resizeMode="contain"
+          />
           ) : (
             <Image 
               source={require('@/assets/images/image.png')} 
