@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, TouchableOpacity, Alert, Text, Animated, PanResponder, Dimensions, Image, ScrollView, ActivityIndicator, Easing } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, Alert, Text, Animated, PanResponder, Dimensions, Image, ScrollView, ActivityIndicator, Easing, Platform } from 'react-native';
 import CameraView, { CameraViewRef } from '@/components/CameraView';
 import * as FileSystem from 'expo-file-system';
 import { useCameraPermissions } from 'expo-camera';
@@ -34,15 +34,20 @@ export default function CameraScreen() {
   const [screenDimensions, setScreenDimensions] = useState(Dimensions.get('window'));
   const [isBoycottAlert, setIsBoycottAlert] = useState(false); 
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [capturedImageBase64, setCapturedImageBase64] = useState<string | null>(null);
   const [companyName, setcompanyName] = useState<string | null>(null);
   const [cause, setCause] = useState<string | null>(null);
   const [productType, setProductType] = useState<string | null>(null);
   const [alternativeItems, setAlternativeItems] = useState<any[]>([]);
   const [country, setCountry] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [flashOn, setFlashOn] = useState(false);
   const [showFirstHint, setShowFirstHint] = useState(false);
   const firstRequestHintShown = useRef(false);
   const hintAnim = useRef(new Animated.Value(0)).current;
+  // Action hint (tap to capture / confirm send), same behavior as first hint
+  const [showActionHint, setShowActionHint] = useState(false);
+  const actionHintAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const fetchCountry = async () => {
@@ -100,6 +105,31 @@ export default function CameraScreen() {
       containerHeight.removeListener(listener);
     };
   }, [containerHeight, minHeight, maxHeight]);
+
+  // Show the action hint (top toast) when not processing; auto-hide after a short delay
+  useEffect(() => {
+    if (!isProcessing) {
+      setShowActionHint(true);
+      actionHintAnim.setValue(0);
+      Animated.sequence([
+        Animated.timing(actionHintAnim, {
+          toValue: 1,
+          duration: 350,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.delay(2000),
+        Animated.timing(actionHintAnim, {
+          toValue: 0,
+          duration: 300,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start(() => setShowActionHint(false));
+    } else {
+      setShowActionHint(false);
+    }
+  }, [capturedImage, isProcessing, actionHintAnim]);
   
   const panResponder = useRef(
     PanResponder.create({
@@ -187,10 +217,15 @@ export default function CameraScreen() {
           const processed = await ImageManipulator.manipulateAsync(
             photo.uri,
             actions,
-            { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG }
+            { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG, base64: true }
           );
 
           setCapturedImage(processed.uri);
+          if (processed.base64) {
+            setCapturedImageBase64(processed.base64);
+          } else {
+            setCapturedImageBase64(null);
+          }
         } else {
           Alert.alert(t(language, 'error'), 'No photo was taken');
         }
@@ -203,6 +238,22 @@ export default function CameraScreen() {
     }
   };
   
+  // Helper: convert a URI to base64 on web (via fetch + FileReader)
+  const uriToBase64Web = async (uri: string): Promise<string> => {
+    const res = await fetch(uri);
+    const blob = await res.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+        const commaIndex = dataUrl.indexOf(',');
+        resolve(commaIndex >= 0 ? dataUrl.slice(commaIndex + 1) : dataUrl);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
+
   const confirmSend = async () => {
     if (!capturedImage) return;
     // Show a small one-time hint that first request may be slow (>10s)
@@ -228,10 +279,18 @@ export default function CameraScreen() {
       ]).start(() => setShowFirstHint(false));
     }
     
-    // Convert to base64 only when sending
-    const base64 = await FileSystem.readAsStringAsync(capturedImage, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
+    // Convert to base64 only when sending (prefer already-available base64)
+    let base64: string | null = capturedImageBase64;
+    if (!base64) {
+      if (Platform.OS === 'web') {
+        base64 = await uriToBase64Web(capturedImage);
+      } else {
+        // Native fallback
+        base64 = await FileSystem.readAsStringAsync(capturedImage, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+      }
+    }
     const base64Image = `data:image/jpeg;base64,${base64}`;
     
     setcompanyName(t(language, 'analyzing'));
@@ -240,6 +299,7 @@ export default function CameraScreen() {
     setAlternativeItems([]);
     setIsBoycottAlert(false);
     setCapturedImage(null);
+    setCapturedImageBase64(null);
     const langToSend = getLanguageName(language);
     const ws = new WebSocket(WS_URL);
     ws.onopen = () => {
@@ -281,11 +341,17 @@ export default function CameraScreen() {
       allowsEditing: true,
       quality: 0.6,
       aspect: [3, 4],
+      base64: true,
     });
 
     if (!result.canceled) {
       // Store URI in RAM for preview
       setCapturedImage(result.assets[0].uri);
+      if (result.assets[0].base64) {
+        setCapturedImageBase64(result.assets[0].base64);
+      } else {
+        setCapturedImageBase64(null);
+      }
     }
   };
   
@@ -341,18 +407,16 @@ export default function CameraScreen() {
         {capturedImage ? (
           <Image source={{ uri: capturedImage }} style={styles.cameraView} />
         ) : (
-          <CameraView ref={cameraRef} style={styles.cameraView} />
+          <CameraView 
+            ref={cameraRef} 
+            style={styles.cameraView} 
+            torchOn={flashOn}
+          />
         )}
       
       
-      {/* Scanner overlay for the camera area */}
+      {/* Scanner overlay container */}
       <View style={styles.scannerOverlay}>
-        <View style={styles.scannerFrame}>
-          <View style={[styles.corner, styles.topLeft]} />
-          <View style={[styles.corner, styles.topRight]} />
-          <View style={[styles.corner, styles.bottomLeft]} />
-          <View style={[styles.corner, styles.bottomRight]} />
-        </View>
         {showFirstHint && (
           <Animated.View
             style={[
@@ -387,31 +451,84 @@ export default function CameraScreen() {
             </View>
           </Animated.View>
         )}
-        {isProcessing? (
+        {isProcessing && (
           <View style={styles.processingOverlay}>
             <ActivityIndicator size="large" color="#ffffff" />
             <Text style={styles.processingText}>{t(language, 'processing')}</Text>
           </View>
-        ): 
-        <View style={styles.instructionContainer}>
-          <Text style={styles.instructionText}>
-            {capturedImage ? t(language, 'confirmSend') : t(language, 'tapToCapture')}
-          </Text>
-        </View>
-        }
-        
-        <TouchableOpacity 
-          style={capturedImage ? styles.sendButton : styles.captureButton} 
-          onPress={capturedImage ? confirmSend : takePicture}
-        >
-          {capturedImage ? (
-            <Text style={styles.sendIcon}>➤</Text>
-          ) : (
-            <View style={styles.captureButtonInner} />
-          )}
-        </TouchableOpacity>
+        )}
+        {showActionHint && (
+          <Animated.View
+            style={[
+              styles.firstHintToast,
+              {
+                opacity: actionHintAnim,
+                transform: [
+                  {
+                    translateY: actionHintAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-10, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <View style={styles.firstHintContent}>
+              <Text style={styles.firstHintIcon} accessibilityElementsHidden>
+                ⓘ
+              </Text>
+              <Text
+                style={[
+                  styles.firstHintText,
+                  isRTL && { writingDirection: 'rtl', textAlign: 'right' },
+                ]}
+                allowFontScaling={false}
+                numberOfLines={2}
+              >
+                {capturedImage ? t(language, 'confirmSend') : t(language, 'tapToCapture')}
+              </Text>
+            </View>
+          </Animated.View>
+        )}
       </View>
       </TouchableOpacity>
+      {/* Floating capture/send + flash buttons: hidden when white container is expanded */}
+      {!isContainerExpanded && (
+        <Animated.View
+          pointerEvents="auto"
+          style={[
+            styles.fabButtonContainer,
+            { bottom: Animated.add(containerHeight, 16) },
+          ]}
+        >
+          {/* Centered capture/send button */}
+          <TouchableOpacity 
+            style={[capturedImage ? styles.sendButton : styles.captureButton, { marginTop: 0 }]} 
+            onPress={capturedImage ? confirmSend : takePicture}
+          >
+            {capturedImage ? (
+              <Text style={styles.sendIcon}>➤</Text>
+            ) : (
+              <View style={styles.captureButtonInner} />
+            )}
+          </TouchableOpacity>
+          {/* Flash toggle positioned to the right of centered capture button */}
+          <TouchableOpacity
+            onPress={() => setFlashOn(prev => !prev)}
+            activeOpacity={0.85}
+            style={[styles.flashFab, flashOn && { backgroundColor: '#2196F3', borderColor: '#1976D2' }]}
+          >
+            <Image 
+              source={require('@/assets/images/flash.png')}
+              style={styles.flashIconSmall}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+
+
+        </Animated.View>
+      )}
       {/* White container taking 75% from bottom - blocks touch */}
       <Animated.View style={[styles.whiteContainer, { height: containerHeight }]} pointerEvents="auto">
         {/* Dynamic color circle on top left */}
@@ -447,7 +564,7 @@ export default function CameraScreen() {
           {isContainerExpanded ? (
             <Image 
             source={require('@/assets/images/close.png')} 
-            style={styles.pickImageIcon}
+            style={styles.closeIcon}
             resizeMode="contain"
           />
           ) : (
@@ -557,46 +674,6 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     paddingHorizontal: 0,
   },
-  scannerFrame: {
-    width: '80%',
-    aspectRatio: 3 / 4,
-    position: 'relative',
-  },
-  corner: {
-    position: 'absolute',
-    width: 30,
-    height: 30,
-    borderColor: 'rgba(255, 255, 255, 0.66)',
-    borderWidth: 3,
-  },
-  topLeft: {
-    top: 0,
-    left: 0,
-    borderRightWidth: 0,
-    borderBottomWidth: 0,
-    borderTopLeftRadius: 8,
-  },
-  topRight: {
-    top: 0,
-    right: 0,
-    borderLeftWidth: 0,
-    borderBottomWidth: 0,
-    borderTopRightRadius: 8,
-  },
-  bottomLeft: {
-    bottom: 0,
-    left: 0,
-    borderRightWidth: 0,
-    borderTopWidth: 0,
-    borderBottomLeftRadius: 8,
-  },
-  bottomRight: {
-    bottom: 0,
-    right: 0,
-    borderLeftWidth: 0,
-    borderTopWidth: 0,
-    borderBottomRightRadius: 8,
-  },
   pickImageButton: {
     position: 'absolute',
     top: 10,
@@ -611,20 +688,79 @@ const styles = StyleSheet.create({
     width: 23,
     height: 23,
   },
-  closeIcon: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    backgroundColor:'rgba(255, 255, 255, 0.16)',
-    color: 'rgba(255, 255, 255, 0.66)',
-    textAlign: 'center',
+  topControls: {
+    position: 'absolute',
+    top: 10,
+    right: 20,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  topButton: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    lineHeight: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  topButtonIconSmall: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.9)',
+  },
+  topButtonImageSmall: {
+    width: 18,
+    height: 18,
+  },
+  fabButtonContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 3,
+    elevation: 3,
+  },
+  flashFab: {
+    position: 'absolute',
+    left: '50%',
+    marginLeft: 51, // 70/2 (capture radius) + 16 spacing
+    top: 13, // vertically center relative to 70 vs 44 height => (70-44)/2
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  flashIconSmall: {
+    width: 20,
+    height: 20,
+  },
+  fabRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  fabSideButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  fabSideIcon: {
+    fontSize: 18,
+    color: 'rgba(255,255,255,0.95)',
+    fontWeight: '600',
+  },
+  closeIcon: {
+    width: 17,
+    height: 17
   },
   captureButton: {
-    position: 'absolute',
-    bottom: '-90%',
     width: 70,
     height: 70,
     borderRadius: 35,
@@ -640,8 +776,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
   },
   sendButton: {
-    position: 'absolute',
-    bottom: '-90%',
     width: 70,
     height: 70,
     borderRadius: 35,
