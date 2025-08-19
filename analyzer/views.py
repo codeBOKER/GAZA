@@ -11,6 +11,9 @@ def home_view(request):
         <h1>Product Identifier (WebSocket)</h1>
         <input type="file" id="imageFile" accept="image/*">
         <button onclick="sendImage()">Analyze Image</button>
+        <br><br>
+        <input type="text" id="companyName" placeholder="Enter company name">
+        <button onclick="sendCompanyName()">Analyze Company</button>
         <div id="result"></div>
 
         <script>
@@ -59,6 +62,14 @@ def home_view(request):
                     document.getElementById('result').innerHTML = '<h3>Analyzing...</h3>';
                 };
                 reader.readAsDataURL(file);
+            }
+
+            function sendCompanyName() {
+                const companyName = document.getElementById('companyName').value;
+                if (companyName.trim()) {
+                    socket.send(JSON.stringify({ company_name: companyName }));
+                    document.getElementById('result').innerHTML = '<h3>Analyzing...</h3>';
+                }
             }
         </script>
     </body>

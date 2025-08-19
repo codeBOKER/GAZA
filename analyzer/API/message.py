@@ -10,14 +10,41 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-async def genrate_text_cause(text):
+async def analyze_company_name(company_name, language="English"):
+    alternativ_messsage= f"""
+        You are a company analysis AI. Your task is to analyze the provided company name and determine:
+
+        Whether the company supports Israel DIRECTLY or INDIRECTLY (True if it has any form of support, False if it does not). Include companies with:
+        - Direct support: donations, partnerships, investments in Israel
+        - Indirect support: subsidiaries operating in Israel, supply chains supporting Israeli economy, parent companies with Israeli ties
+        The brand/company name.
+        The parent company name.
+        The main product type/category the company is known for.
+        The cause of boycott, stated in a critical and direct manner, without any justification, apology, or positive framing for the company.
+
+        Respond only in this exact format:
+        [True/False, Brand Name, Parent Company Name, Product Type, Cause]
+
+        If no Parent Company, put: $
+
+        Examples:
+        [True, McDonald's, $, Fast Food, Provides free meals to Israeli military forces]
+        [True, Starbucks, $, Coffee, Supports Israeli military through corporate partnerships]
+        [False, Samsung, $, Electronics, No evidence of direct support for Israel]
+        [True, HP, $, Technology, Provides technology infrastructure for Israeli settlements]
+        [True, Coca-Cola, $, Soft Drinks, Sponsors Israeli military events and activities]
+
+        CRITICAL: You MUST respond in {language} language only. All text in your response must be in {language}.
+        
+        Be accurate and consistent. Do not include any extra text, punctuation, or formatting other than the specified structure.
+    """
     try:
         from analyzer.models import SystemMessage
-        system_msg = await database_sync_to_async(lambda: SystemMessage.objects.filter(name="text_generation", is_active=True).first())()
-        system_content = system_msg.message if system_msg else "Type this text in another style, with Arabic language"
+        system_msg = await database_sync_to_async(lambda: SystemMessage.objects.filter(name="company_analysis", is_active=True).first())()
+        system_content = (system_msg.message + f" CRITICAL: You MUST respond in {language} language only.") if system_msg else alternativ_messsage
     except Exception as e:
-        logger.error(f"Error fetching text generation system message: {str(e)}")
-        system_content = "Type this text in another style, with Arabic language"
+        logger.error(f"Error fetching analyze_company_name system message: {str(e)}")
+        system_content = alternativ_messsage
     
     message = [
         {
@@ -26,21 +53,18 @@ async def genrate_text_cause(text):
         },
         {
             "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": text
-                }
-            ]
+            "content": f"Analyze this company: {company_name}. IMPORTANT: Respond in {language} language."
         }
     ]
     return await analyze(message)
 
 async def analyze_img(image_url, language="English"):
-    alternativ_messsage= """
+    alternativ_messsage= f"""
         You are a product identification AI. Your task is to analyze the provided image and determine:
 
-        Whether the identified company/brand supports Israel (True if it supports, False if it does not).
+        Whether the identified company/brand supports Israel DIRECTLY or INDIRECTLY (True if it has any form of support, False if it does not). Include companies with:
+        - Direct support: donations, partnerships, investments in Israel
+        - Indirect support: subsidiaries operating in Israel, supply chains supporting Israeli economy, parent companies with Israeli ties
 
         The brand/company name.
 
@@ -66,14 +90,14 @@ async def analyze_img(image_url, language="English"):
 
         If no product is clearly visible in the image, respond exactly with: #
 
-        Be concise and consistent. Do not include any extra text, punctuation, or formatting other than the specified structure.
-
-        The language of the answer should be in 
+        CRITICAL: You MUST respond in {language} language only. All text in your response must be in {language}.
+        
+        Be concise and consistent. Do not include any extra text, punctuation, or formatting other than the specified structure. 
         """
     try:
         from analyzer.models import SystemMessage
         system_msg = await database_sync_to_async(lambda: SystemMessage.objects.filter(name="image_analysis", is_active=True).first())() 
-        system_content = system_msg.message+" "+language if system_msg else alternativ_messsage+" "+language
+        system_content = (system_msg.message + f" CRITICAL: You MUST respond in {language} language only.") if system_msg else alternativ_messsage
     except Exception as e:
         logger.error(f"Error fetching image analysis system message: {str(e)}")
         system_content = alternativ_messsage

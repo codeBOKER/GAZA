@@ -4,7 +4,7 @@ import asyncio
 import logging
 from channels.generic.websocket import AsyncWebsocketConsumer
 from .imgProcessor import convert_and_resize_image
-from analyzer.API.message import analyze_img, genrate_text_cause
+from analyzer.API.message import analyze_img, analyze_company_name
 from analyzer.Boycott import check_company_and_get_cause, get_alternatives_for_boycott_product
 
 logger = logging.getLogger(__name__)
@@ -40,8 +40,10 @@ class AnalyzeConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         data = json.loads(text_data)
         image_data = data.get('image_data', None)
-        if not image_data:
-            logger.error("No IMAGE data provided")
+        company_name_input = data.get('company_name', None)
+        
+        if not image_data and not company_name_input:
+            logger.error("No IMAGE data or company name provided")
             return     
            
         country = data.get('country', None)
@@ -50,32 +52,37 @@ class AnalyzeConsumer(AsyncWebsocketConsumer):
 
         language = data.get('language', 'English')
 
-        # Extract base64 data from data URL
-        if image_data.startswith('data:image/'):
-            base64_data = image_data.split(',')[1]
-        else:
-            base64_data = image_data
-
-        file_bytes = base64.b64decode(base64_data)
-
-
-        # file_bytes = base64.b64decode(image_data)
-        resized_base64, ext, saved_filename = await asyncio.to_thread(
-            convert_and_resize_image, file_bytes, max_size=(800, 800), quality=70
-        )
-
-        image_url = f"data:image/{ext};base64,{resized_base64}"
-
         try:
-            response_text = await asyncio.wait_for(analyze_img(image_url, language), timeout=25.0)
-            logger.info(f"Image analysis response: {response_text}")
-            
-            boycott_status, company_name, company_parent_name, product_type, cause = parse_response(response_text)
-            logger.info(f"Parsed response: {company_name}, {company_parent_name}, {product_type}")
+            if company_name_input:
+                # Handle text-based company name analysis
+                response_text = await asyncio.wait_for(analyze_company_name(company_name_input, language), timeout=25.0)
+                logger.info(f"Company name analysis response: {response_text}")
+                boycott_status, company_name, company_parent_name, product_type, cause = parse_response(response_text)
+                logger.info(f"Parsed response: {company_name}, {company_parent_name}, {product_type}")
+            else:
+                # Handle image-based analysis
+                # Extract base64 data from data URL
+                if image_data.startswith('data:image/'):
+                    base64_data = image_data.split(',')[1]
+                else:
+                    base64_data = image_data
+
+                file_bytes = base64.b64decode(base64_data)
+                resized_base64, ext, saved_filename = await asyncio.to_thread(
+                    convert_and_resize_image, file_bytes, max_size=(800, 800), quality=70
+                )
+
+                image_url = f"data:image/{ext};base64,{resized_base64}"
+                response_text = await asyncio.wait_for(analyze_img(image_url, language), timeout=25.0)
+                logger.info(f"Image analysis response: {response_text}")
+                boycott_status, company_name, company_parent_name, product_type, cause = parse_response(response_text)
+                logger.info(f"Parsed response: {company_name}, {company_parent_name}, {product_type}")
             
             if not company_name:
-                await self.send(text_data=json.dumps({"type": "error", "value": "Invalid image or response format"}))
-                await self.send(text_data=json.dumps({"type": "company", "value": "Image NOT recognized"}))
+                error_msg = "Invalid response format" if company_name_input else "Invalid image or response format"
+                not_recognized_msg = "Company NOT recognized" if company_name_input else "Image NOT recognized"
+                await self.send(text_data=json.dumps({"type": "error", "value": error_msg}))
+                await self.send(text_data=json.dumps({"type": "company", "value": not_recognized_msg}))
                 await self.send(text_data=json.dumps({"type": "boycott", "value": False}))
                 await self.send(text_data=json.dumps({"type": "product_type", "value":""}))
                 await self.send(text_data=json.dumps({"type": "cause", "value": ""}))
@@ -107,17 +114,13 @@ class AnalyzeConsumer(AsyncWebsocketConsumer):
                     is_alternative = await is_alternative_product(company_name, product_type, country)
                     logger.info(f"is_alternative_product returned: {is_alternative} for {company_name} - {product_type} in {country}")
                     
-                    if is_alternative:
-                        logger.info(f"Alternative company found: {company_name}")
-                        await self.send(text_data=json.dumps({"type": "done"}))
-                        await self.close()
-                    else:
-                        # Save as new alternative product for future reference
+                    if not is_alternative and image_data:
                         await save_product_as_alternative(company_name, product_type, resized_base64, country)
                         logger.info(f"New company saved as alternative: {company_name}")
-                        await self.send(text_data=json.dumps({"type": "done"}))
-                        await self.close()
-                
+
+                    await self.send(text_data=json.dumps({"type": "done"}))
+                    await self.close()
+
         except asyncio.TimeoutError:
             await self.send(text_data=json.dumps({"type": "error", "value": "Request timed out after 25 seconds"}))
             await self.send(text_data=json.dumps({"type": "company", "value": "Timed out after 25 seconds"}))
