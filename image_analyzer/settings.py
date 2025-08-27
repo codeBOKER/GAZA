@@ -34,6 +34,15 @@ ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 # WebSocket origins
 CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'localhost,127.0.0.1').split(',')
 
+# Security headers
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+
+# Rate limiting (consider using django-ratelimit for HTTP endpoints)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
+
 
 # Application definition
 
@@ -159,3 +168,6 @@ REST_FRAMEWORK = {
 # Get your client ID from https://api.imgur.com/oauth2/addclient
 
 IMGUR_CLIENT_ID = os.getenv('IMGUR_CLIENT_ID')
+
+# WebSocket API Key
+WEBSOCKET_API_KEY = os.getenv('WEBSOCKET_API_KEY', 'your-secret-api-key-here')

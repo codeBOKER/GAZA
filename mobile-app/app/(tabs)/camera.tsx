@@ -10,12 +10,20 @@ import { useRouter } from 'expo-router';
 import { t } from '@/i18n/translations';
 
 const WS_URL = process.env.EXPO_PUBLIC_WS_URL || 'wss://gaza-g4rl.onrender.com/ws/analyze/';
+const API_KEY = process.env.EXPO_PUBLIC_API_KEY || 'your-secret-api-key-here';
 export default function CameraScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraViewRef>(null);
   const { language } = useLanguage();
   const router = useRouter();
   const isRTL = language === 'ar' || language === 'ur';
+
+  useEffect(() => {
+    if (permission && permission.granted) {
+      return;
+    }
+    requestPermission();
+  }, [permission, requestPermission]);
 
   // Map language codes to human-readable language names
   const languageNames: Record<string, string> = {
@@ -50,6 +58,12 @@ export default function CameraScreen() {
   const actionHintAnim = useRef(new Animated.Value(0)).current;
   const [showSearchField, setShowSearchField] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    if (!permission) {
+      requestPermission();
+    }
+  }, [permission, requestPermission]);
 
   useEffect(() => {
     const fetchCountry = async () => {
@@ -303,7 +317,7 @@ export default function CameraScreen() {
     setCapturedImage(null);
     setCapturedImageBase64(null);
     const langToSend = getLanguageName(language);
-    const ws = new WebSocket(WS_URL);
+    const ws = new WebSocket(`${WS_URL}?api_key=${API_KEY}`);
     ws.onopen = () => {
       ws.send(JSON.stringify({
         image_data: base64Image,
@@ -398,7 +412,7 @@ export default function CameraScreen() {
     setShowSearchField(false);
     
     const langToSend = getLanguageName(language);
-    const ws = new WebSocket(WS_URL);
+    const ws = new WebSocket(`${WS_URL}?api_key=${API_KEY}`);
     ws.onopen = () => {
       ws.send(JSON.stringify({
         company_name: searchQuery.trim(),
