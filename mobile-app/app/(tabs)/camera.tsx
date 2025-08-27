@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, TouchableOpacity, Alert, Text, Animated, PanResponder, Dimensions, Image, ScrollView, ActivityIndicator, Easing, Platform } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, Alert, Text, Animated, PanResponder, Dimensions, Image, ScrollView, ActivityIndicator, Easing, Platform, TextInput } from 'react-native';
 import CameraView, { CameraViewRef } from '@/components/CameraView';
 import * as FileSystem from 'expo-file-system';
 import { useCameraPermissions } from 'expo-camera';
@@ -48,6 +48,8 @@ export default function CameraScreen() {
   // Action hint (tap to capture / confirm send), same behavior as first hint
   const [showActionHint, setShowActionHint] = useState(false);
   const actionHintAnim = useRef(new Animated.Value(0)).current;
+  const [showSearchField, setShowSearchField] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const fetchCountry = async () => {
@@ -375,6 +377,61 @@ export default function CameraScreen() {
     }
   };
 
+  const handleSearchPress = () => {
+    setShowSearchField(true);
+    setSearchQuery('');
+  };
+
+  const handleSearchClose = () => {
+    setShowSearchField(false);
+    setSearchQuery('');
+  };
+
+  const handleSearchSubmit = async () => {
+    if (!searchQuery.trim()) return;
+    
+    setcompanyName(t(language, 'analyzing'));
+    setProductType("");
+    setCause("...");
+    setAlternativeItems([]);
+    setIsBoycottAlert(false);
+    setShowSearchField(false);
+    
+    const langToSend = getLanguageName(language);
+    const ws = new WebSocket(WS_URL);
+    ws.onopen = () => {
+      ws.send(JSON.stringify({
+        company_name: searchQuery.trim(),
+        country: country,
+        language: langToSend,
+      }));
+    };
+    
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === "company") {
+        setcompanyName(data.value);
+      } else if (data.type === "product_type") {
+        setProductType(data.value);
+      } else if (data.type === "boycott") {
+        setIsBoycottAlert(data.value);
+      } else if (data.type === "cause") {
+        setCause(data.value); 
+      } else if (data.type === "alternative") {
+        setAlternativeItems(data.value);
+      }
+
+      if (data.type === "done") {
+         ws.close();
+      }
+    };
+
+    ws.onerror = (error) => {
+      Alert.alert(t(language, 'error'), t(language, 'failedAnalyze'));
+      console.error('WebSocket error:', error);
+    };
+  };
+
   // Show a dedicated permission prompt UI only when permission is NOT granted
   if (!permission?.granted) {
     return (
@@ -398,6 +455,39 @@ export default function CameraScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Search field at top of screen */}
+      {showSearchField && (
+        <View style={styles.searchContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder={t(language, 'searchCompany')}
+            placeholderTextColor="#999"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoFocus
+          />
+          <TouchableOpacity
+            style={styles.searchSubmitButton}
+            onPress={handleSearchSubmit}
+          >
+            <Image 
+              source={require('@/assets/images/send.png')} 
+              style={styles.searchSubmitIcon}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.searchCloseButton}
+            onPress={handleSearchClose}
+          >
+            <Image 
+              source={require('@/assets/images/searchFieldClose.png')} 
+              style={styles.searchCloseIcon}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+        </View>
+      )}
       {/* Camera background or captured image */}
       <TouchableOpacity 
         style={styles.cameraView} 
@@ -556,25 +646,39 @@ export default function CameraScreen() {
             </Text>
           </View>
         </View>
-        {/* Select from gallery button / Close button in top right */}
-        <TouchableOpacity
-          style={styles.pickImageButton}
-          onPress={handleButtonPress}
-        >
-          {isContainerExpanded ? (
+        {/* Top right buttons */}
+        <View style={styles.topRightButtons}>
+          <TouchableOpacity
+            style={styles.searchButton}
+            onPress={handleSearchPress}
+          >
             <Image 
-            source={require('@/assets/images/close.png')} 
-            style={styles.closeIcon}
-            resizeMode="contain"
-          />
-          ) : (
-            <Image 
-              source={require('@/assets/images/image.png')} 
-              style={styles.pickImageIcon}
+              source={require('@/assets/images/search.png')} 
+              style={styles.searchIcon}
               resizeMode="contain"
             />
-          )}
-        </TouchableOpacity>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.pickImageButton}
+            onPress={handleButtonPress}
+          >
+            {isContainerExpanded ? (
+              <Image 
+              source={require('@/assets/images/close.png')} 
+              style={styles.closeIcon}
+              resizeMode="contain"
+            />
+            ) : (
+              <Image 
+                source={require('@/assets/images/image.png')} 
+                style={styles.pickImageIcon}
+                resizeMode="contain"
+              />
+            )}
+          </TouchableOpacity>
+        </View>
+        
+
         
         {/* Content inside white container */}
         <View style={styles.contentContainer}>
@@ -613,7 +717,7 @@ export default function CameraScreen() {
               showsVerticalScrollIndicator={false}
             >
               <View style={[styles.alternativesGrid, isRTL && { flexDirection: 'row-reverse' }]}>
-                { isBoycottAlert ? alternativeItems.map((alt, index) => (
+                { isBoycottAlert ? (alternativeItems || []).map((alt, index) => (
                   <View key={index} style={styles.alternativeRow}>
                     <View style={styles.alternativeItem}>
                       <View style={styles.alternativeImagePlaceholder}>
@@ -661,7 +765,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
-    transform: [{ translateY: -100 }], // Center vertically
+    transform: [{ translateY: -100 }], 
   },
   whiteContainer: {
     position: 'absolute',
@@ -674,19 +778,71 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     paddingHorizontal: 0,
   },
-  pickImageButton: {
+  topRightButtons: {
     position: 'absolute',
     top: 10,
     right: 20,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  pickImageButton: {
     width: 28,
     height: 28,
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  searchButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchIcon: {
+    width: 18,
+    height: 18,
+  },
+  searchContainer: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    right: 20,
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+    zIndex: 1000,
+    elevation: 1000,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#000',
+  },
+  searchSubmitButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  searchSubmitIcon: {
+    width: 18,
+    height: 18,
+  },
+  searchCloseButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  searchCloseIcon: {
+    width: 18,
+    height: 18,
+  },
   pickImageIcon: {
-    width: 23,
-    height: 23,
+    width: 20,
+    height: 20,
   },
   topControls: {
     position: 'absolute',
@@ -721,8 +877,8 @@ const styles = StyleSheet.create({
   flashFab: {
     position: 'absolute',
     left: '50%',
-    marginLeft: 51, // 70/2 (capture radius) + 16 spacing
-    top: 13, // vertically center relative to 70 vs 44 height => (70-44)/2
+    marginLeft: 51, 
+    top: 13, 
     width: 44,
     height: 44,
     borderRadius: 22,
@@ -757,8 +913,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   closeIcon: {
-    width: 17,
-    height: 17
+    width: 15,
+    height: 15
   },
   captureButton: {
     width: 70,

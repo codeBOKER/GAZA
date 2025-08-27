@@ -19,6 +19,7 @@ export const translations: Record<string, Record<string, string>> = {
     error: 'Error',
     failedAnalyze: 'Failed to analyze image',
     firstRequestMayBeSlow: 'First analysis may take over 10s; please wait.',
+    searchCompany: 'Search company...',
   },
   ar: {
     processing: 'جاري معالجة الصورة...',
@@ -38,6 +39,7 @@ export const translations: Record<string, Record<string, string>> = {
     error: 'خطأ',
     failedAnalyze: 'فشل تحليل الصورة',
     firstRequestMayBeSlow: 'قد تستغرق أول عملية تحليل أكثر من 10 ثوانٍ. الرجاء الانتظار.',
+    searchCompany: 'البحث عن شركة...',
   },
   fr: {
     processing: "Traitement de l'image...",
@@ -57,6 +59,7 @@ export const translations: Record<string, Record<string, string>> = {
     error: 'Erreur',
     failedAnalyze: "Échec de l'analyse de l'image",
     firstRequestMayBeSlow: 'La première analyse peut durer plus de 10 s ; veuillez patienter.',
+    searchCompany: 'Rechercher une société...',
   },
   es: {
     processing: 'Procesando imagen...',
@@ -76,6 +79,7 @@ export const translations: Record<string, Record<string, string>> = {
     error: 'Error',
     failedAnalyze: 'No se pudo analizar la imagen',
     firstRequestMayBeSlow: 'El primer análisis puede tardar más de 10 s; por favor espere.',
+    searchCompany: 'Buscar compañía...',
   },
   de: {
     processing: 'Bild wird verarbeitet...',
@@ -95,6 +99,7 @@ export const translations: Record<string, Record<string, string>> = {
     error: 'Fehler',
     failedAnalyze: 'Bildanalyse fehlgeschlagen',
     firstRequestMayBeSlow: 'Die erste Analyse kann über 10 Sekunden dauern; bitte warten.',
+    searchCompany: 'Firma suchen...',
   },
   tr: {
     processing: 'Görüntü işleniyor...',
@@ -114,6 +119,7 @@ export const translations: Record<string, Record<string, string>> = {
     error: 'Hata',
     failedAnalyze: 'Görüntü analiz edilemedi',
     firstRequestMayBeSlow: 'İlk analiz 10 saniyeden uzun sürebilir; lütfen bekleyin.',
+    searchCompany: 'Şirket ara...',
   },
   ur: {
     processing: 'تصویر پر عمل ہو رہا ہے...',
@@ -133,6 +139,7 @@ export const translations: Record<string, Record<string, string>> = {
     error: 'خرابی',
     failedAnalyze: 'تصویر کا تجزیہ ناکام',
     firstRequestMayBeSlow: 'پہلا تجزیہ 10 سیکنڈ سے زیادہ لے سکتا ہے، براہِ کرم انتظار کریں۔',
+    searchCompany: 'کمپنی تلاش کریں...',
   },
 };
 
